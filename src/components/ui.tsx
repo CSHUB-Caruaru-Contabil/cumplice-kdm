@@ -283,6 +283,14 @@ export function Toast({ msg, onHide }: { msg: string; onHide: () => void }) {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+/** Converte "YYYY-MM-DD" ou ISO string para "DD/MM/AAAA" */
+export function fmtData(data: string | null | undefined): string {
+  if (!data) return '—'
+  const s = data.substring(0, 10) // pega só "YYYY-MM-DD"
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return data
+  return `${s.substring(8, 10)}/${s.substring(5, 7)}/${s.substring(0, 4)}`
+}
+
 export function brl(valor: number | null | undefined): string {
   if (valor == null || !isFinite(valor) || isNaN(valor)) return 'R$ —'
   return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`

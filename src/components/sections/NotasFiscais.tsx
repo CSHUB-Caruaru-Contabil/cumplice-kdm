@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { NotaFiscal } from '@/lib/supabase/types'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
-  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl,
+  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
 } from '@/components/ui'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
@@ -141,7 +141,7 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
         <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP', 'Valor', 'Recebimento', 'Banco', '']}>
           {notas.map(n => (
             <Tr key={n.id}>
-              <Td>{n.data}</Td>
+              <Td>{fmtData(n.data)}</Td>
               <Td mono>{n.numero}</Td>
               <Td>{n.cliente_nf}</Td>
               <Td mono>{n.cfop}</Td>

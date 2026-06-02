@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Compra } from '@/lib/supabase/types'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
-  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl,
+  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
 } from '@/components/ui'
 import { parseMultiplosXML } from '@/lib/parsers/nfe'
 
@@ -178,7 +178,7 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
         <Table headers={['Data', 'Fornecedor', 'Categoria', 'Valor', 'NF Entrada', 'Pagamento', 'Status', '']}>
           {compras.map(c => (
             <Tr key={c.id}>
-              <Td>{c.data}</Td>
+              <Td>{fmtData(c.data)}</Td>
               <Td>{c.fornecedor}</Td>
               <Td>{c.categoria}</Td>
               <Td>{brl(c.valor)}</Td>

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cruzarDados } from '@/lib/crossref'
 import type { BancoLancamento, Compra, Despesa, NotaFiscal } from '@/lib/supabase/types'
-import { AlertBar, Badge, Btn, Card, CardTitle, KpiCard, Table, Td, Toast, Tr, brl } from '@/components/ui'
+import { AlertBar, Badge, Btn, Card, CardTitle, KpiCard, Table, Td, Toast, Tr, brl, fmtData, } from '@/components/ui'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 

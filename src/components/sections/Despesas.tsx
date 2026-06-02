@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Despesa } from '@/lib/supabase/types'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
-  RowActions, Select, Table, Td, Toast, Tr, brl,
+  RowActions, Select, Table, Td, Toast, Tr, brl, fmtData,
 } from '@/components/ui'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
@@ -109,7 +109,7 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
         <Table headers={['Data', 'Descrição', 'Categoria', 'Valor', 'Documento', 'No Banco', 'Status', '']}>
           {despesas.map(d => (
             <Tr key={d.id}>
-              <Td>{d.data}</Td>
+              <Td>{fmtData(d.data)}</Td>
               <Td>{d.descricao}</Td>
               <Td>{d.categoria}</Td>
               <Td>{brl(d.valor)}</Td>

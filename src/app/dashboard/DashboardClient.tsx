@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Cliente } from '@/lib/supabase/types'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Sidebar from '@/components/Sidebar'
@@ -80,7 +81,19 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
   const SECOES_COM_CLIENTE: Section[] = ['visao-geral','compras','notas','banco','despesas','cruzamento','projecao','config']
   const precisaCliente = SECOES_COM_CLIENTE.includes(secao)
 
-  function recarregar() { setRefresh(r => r + 1) }
+  const supabase = createClient()
+
+  // Recarrega dados do cliente ativo do banco (para refletir edições do Config)
+  const refetchCliente = useCallback(async () => {
+    if (!clienteAtivo?.id) return
+    const { data } = await supabase.from('clientes').select('*').eq('id', clienteAtivo.id).single()
+    if (data) setClienteAtivo(data as Cliente)
+  }, [clienteAtivo?.id])
+
+  function recarregar() {
+    setRefresh(r => r + 1)
+    refetchCliente()
+  }
 
   const [titulo, subtitulo] = SECTION_TITLES[secao]
   const sectionProps = { clienteId: clienteAtivo?.id ?? '', periodo, refresh, onRecarregar: recarregar }

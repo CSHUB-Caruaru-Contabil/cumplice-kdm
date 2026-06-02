@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { BancoLancamento } from '@/lib/supabase/types'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
-  RowActions, Select, Table, Td, Toast, Tr, brl,
+  RowActions, Select, Table, Td, Toast, Tr, brl, fmtData,
 } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Upload, Plus, Landmark } from 'lucide-react'
@@ -305,7 +305,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
         <Table headers={['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Conta', 'NF Vinc.', 'Status', '']}>
           {lancamentos.map(b => (
             <Tr key={b.id}>
-              <Td>{b.data}</Td>
+              <Td>{fmtData(b.data)}</Td>
               <Td>{b.descricao}</Td>
               <Td>{b.categoria}</Td>
               <Td>
