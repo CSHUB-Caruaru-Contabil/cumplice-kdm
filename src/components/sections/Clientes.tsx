@@ -7,10 +7,16 @@ import {
   Btn, Card, ConfirmDelete, Input, Modal, RowActions,
   Select, Table, Td, Toast, Tr,
 } from '@/components/ui'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus, Building2, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
+type Props = {
+  clienteId: string
+  periodo: string
+  refresh: number
+  onRecarregar: () => void
+  onEntrarCliente?: (cliente: Cliente) => void
+}
 
 const REGIMES = [
   'Simples Nacional – Anexo I',
@@ -50,7 +56,7 @@ const vazio = (): Partial<Cliente> => ({
   limite_alerta_imposto: 5.5,
 })
 
-export default function Clientes({ onRecarregar }: Props) {
+export default function Clientes({ onRecarregar, onEntrarCliente }: Props) {
   const supabase = createClient()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [toast, setToast] = useState('')
@@ -260,10 +266,23 @@ export default function Clientes({ onRecarregar }: Props) {
                   </div>
                 </Td>
                 <Td>
-                  <RowActions
-                    onEdit={() => abrirEdicao(c)}
-                    onDelete={() => setExcluindo(c.id)}
-                  />
+                  <div className="flex items-center gap-2">
+                    {onEntrarCliente && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 px-3 text-xs gap-1.5"
+                        onClick={() => onEntrarCliente(c)}
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Entrar
+                      </Button>
+                    )}
+                    <RowActions
+                      onEdit={() => abrirEdicao(c)}
+                      onDelete={() => setExcluindo(c.id)}
+                    />
+                  </div>
                 </Td>
               </Tr>
             ))}

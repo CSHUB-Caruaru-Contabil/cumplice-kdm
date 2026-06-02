@@ -120,7 +120,15 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
         {/* Content */}
         <div className="flex-1 p-6">
           {/* Seções sem cliente */}
-          {secao === 'clientes' && <Clientes {...sectionProps} />}
+          {secao === 'clientes' && (
+            <Clientes
+              {...sectionProps}
+              onEntrarCliente={c => {
+                setClienteAtivo(c)
+                setSecao('visao-geral')
+              }}
+            />
+          )}
           {secao === 'usuarios' && <Usuarios {...sectionProps} />}
 
           {/* Seções que precisam de cliente */}
