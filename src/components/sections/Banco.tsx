@@ -374,11 +374,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
                   : <span className="text-muted-foreground text-xs">—</span>}
               </Td>
               <Td mono>{b.nf_vinculada || <span className="text-muted-foreground">—</span>}</Td>
-              <Td>
-                <Badge variant={b.status === 'ok' ? 'ok' : b.status === 'parcial' ? 'warn' : b.status === 'sem_nf' ? 'err' : 'pending'}>
-                  {b.status === 'ok' ? '✓ OK' : b.status === 'parcial' ? '⚠ Parcial' : b.status === 'sem_nf' ? '⚠ Sem NF' : '⏳ Pendente'}
-                </Badge>
-              </Td>
+              <Td><StatusBancario status={b.status} /></Td>
               <Td><RowActions onEdit={() => setEditando({ ...b })} onDelete={() => setExcluindo(b.id)} /></Td>
             </Tr>
           ))}
@@ -428,6 +424,23 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
       {excluindo && <ConfirmDelete onConfirm={confirmarExclusao} onCancel={() => setExcluindo(null)} />}
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
     </div>
+  )
+}
+
+// ── Subcomponente: status legível dos lançamentos ───────────────────────────
+function StatusBancario({ status }: { status: string | undefined }) {
+  const cfg = {
+    ok:       { label: 'Conciliado',   dot: 'bg-green-500',  text: 'text-green-400',  bg: 'bg-green-500/10  border-green-500/20'  },
+    parcial:  { label: 'Parcialmente', dot: 'bg-orange-400', text: 'text-orange-300', bg: 'bg-orange-500/10 border-orange-500/20' },
+    sem_nf:   { label: 'Sem NF',       dot: 'bg-red-500',    text: 'text-red-400',    bg: 'bg-red-500/10    border-red-500/20'    },
+    pendente: { label: 'A conciliar',  dot: 'bg-slate-400',  text: 'text-slate-400',  bg: 'bg-slate-500/10  border-slate-500/20'  },
+  }
+  const c = cfg[status as keyof typeof cfg] ?? cfg.pendente
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${c.bg} ${c.text}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
+      {c.label}
+    </span>
   )
 }
 
