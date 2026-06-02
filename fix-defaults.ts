@@ -1,7 +1,7 @@
 import { config } from 'dotenv'
 config({ path: '.env' })
 config({ path: '.env.local', override: true })
-import { PrismaClient } from '../src/generated/prisma'
+import { PrismaClient } from './src/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })

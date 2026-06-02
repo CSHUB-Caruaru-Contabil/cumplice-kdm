@@ -28,8 +28,8 @@ export default function Cruzamento({ clienteId, periodo, refresh }: Props) {
       clienteId, periodo,
       (banco || []) as BancoLancamento[],
       (notas || []) as NotaFiscal[],
-      (compras || []) as Compra[],
-      (despesas || []) as Despesa[],
+      (compras || []).map(c => ({ ...c, status: c.nf_entrada ? 'ok' : 'sem_nf' })) as Compra[],
+      (despesas || []).map(d => ({ ...d, status: d.documento ? 'ok' : 'sem_doc' })) as Despesa[],
       thresh || undefined
     )
     setResultado(r)

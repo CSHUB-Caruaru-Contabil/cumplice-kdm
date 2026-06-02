@@ -31,7 +31,12 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
   const carregar = useCallback(async () => {
     const { data: rows } = await supabase.from('despesas').select('*')
       .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
-    setDespesas((rows || []) as Despesa[])
+    // status é coluna gerada que não existe após prisma db push — deriva do documento
+    const comStatus = (rows || []).map(r => ({
+      ...r,
+      status: (r.documento ? 'ok' : 'sem_doc') as 'ok' | 'sem_doc',
+    }))
+    setDespesas(comStatus as Despesa[])
   }, [clienteId, periodo])
 
   useEffect(() => { carregar() }, [carregar, refresh])

@@ -34,7 +34,12 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
   const carregar = useCallback(async () => {
     const { data: rows } = await supabase.from('compras').select('*')
       .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
-    setCompras((rows || []) as Compra[])
+    // status é coluna gerada que não existe após prisma db push — deriva do nf_entrada
+    const comStatus = (rows || []).map(r => ({
+      ...r,
+      status: (r.nf_entrada ? 'ok' : 'sem_nf') as 'ok' | 'sem_nf',
+    }))
+    setCompras(comStatus as Compra[])
   }, [clienteId, periodo])
 
   useEffect(() => { carregar() }, [carregar, refresh])

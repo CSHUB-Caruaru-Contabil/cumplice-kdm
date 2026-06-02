@@ -26,8 +26,8 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
       ])
       setDados({
         notas: (notas || []) as NotaFiscal[],
-        compras: (compras || []) as Compra[],
-        despesas: (despesas || []) as Despesa[],
+        compras: (compras || []).map(r => ({ ...r, status: r.nf_entrada ? 'ok' : 'sem_nf' })) as Compra[],
+        despesas: (despesas || []).map(r => ({ ...r, status: r.documento ? 'ok' : 'sem_doc' })) as Despesa[],
         banco: (banco || []) as BancoLancamento[],
       })
       setCarregando(false)
