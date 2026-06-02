@@ -27,6 +27,7 @@ model Cliente {
   despesas         Despesa[]
   divergencias     Divergencia[]
   thresholds       Threshold?
+  contas_bancarias ContaBancaria[]
   usuario_clientes UsuarioCliente[]
 
   @@map("clientes")
@@ -149,6 +150,23 @@ model Divergencia {
   despesa          Despesa?         @relation(fields: [despesa_id], references: [id])
 
   @@map("divergencias")
+}
+
+model ContaBancaria {
+  id         String   @id @default(uuid())
+  cliente_id String
+  nome       String   // "Itaú CC 12345-6"
+  banco      String   // "Itaú", "Bradesco", etc.
+  tipo       String   @default("corrente") // corrente | poupança | pagamento
+  agencia    String?
+  numero     String?
+  principal  Boolean  @default(false)
+  ativo      Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+
+  @@map("contas_bancarias")
 }
 
 model Threshold {

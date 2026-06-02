@@ -9,6 +9,7 @@ import {
 } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { Upload, Plus, Landmark } from 'lucide-react'
+import ContasBancarias from '@/components/ContasBancarias'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -44,27 +45,16 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
       .eq('cliente_id', clienteId).eq('periodo', periodo)
       .order('data', { ascending: false })
     setLancamentos((rows || []) as BancoLancamento[])
-
-    // Carrega todas as contas distintas deste cliente (todos os períodos)
-    const { data: todasContas } = await supabase
-      .from('banco_lancamentos').select('conta')
-      .eq('cliente_id', clienteId)
-      .not('conta', 'is', null)
-
-    const distintas = [...new Set((todasContas || []).map(r => r.conta).filter(Boolean))] as string[]
-
-    // Também inclui banco_principal do cliente
-    const { data: cliente } = await supabase
-      .from('clientes').select('banco_principal').eq('id', clienteId).single()
-
-    if (cliente?.banco_principal && !distintas.includes(cliente.banco_principal)) {
-      distintas.unshift(cliente.banco_principal)
-    }
-
-    setContas(distintas)
-    if (!conta && distintas.length > 0) setConta(distintas[0])
-    if (!contaImport && distintas.length > 0) setContaImport(distintas[0])
   }, [clienteId, periodo])
+
+  // Callback chamado quando ContasBancarias muda
+  function onContasChange(novasContas: { nome: string; principal: boolean }[]) {
+    const nomes = novasContas.map(c => c.nome)
+    setContas(nomes)
+    const principal = novasContas.find(c => c.principal)?.nome || nomes[0] || ''
+    if (!conta) setConta(principal)
+    if (!contaImport) setContaImport(principal)
+  }
 
   useEffect(() => { carregar() }, [carregar, refresh])
 
@@ -199,6 +189,9 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
           </div>
         </div>
       </Card>
+
+      {/* Gestão de contas bancárias */}
+      <ContasBancarias clienteId={clienteId} onContasChange={onContasChange} />
 
       {/* Import OFX — com seleção de conta em destaque */}
       <Card className="mb-4">
