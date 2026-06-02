@@ -55,29 +55,14 @@ function gerarPeriodos(): { value: string; label: string }[] {
 
 export const PERIODOS_LISTA = gerarPeriodos()
 
-// Detecta se sidebar está collapsed para ajustar o margin
-function useSidebarWidth() {
-  const [collapsed, setCollapsed] = useState(false)
-  useEffect(() => {
-    const obs = new MutationObserver(() => {
-      const aside = document.querySelector('aside')
-      setCollapsed(aside?.classList.contains('w-\\[64px\\]') ?? false)
-    })
-    const aside = document.querySelector('aside')
-    if (aside) obs.observe(aside, { attributes: true, attributeFilter: ['class'] })
-    return () => obs.disconnect()
-  }, [])
-  return collapsed
-}
-
 export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
   const semCliente = clientes.length === 0
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(clientes[0] || null)
-  // Sem cliente → abre direto em Empresas para facilitar o onboarding
   const [secao, setSecao] = useState<Section>(semCliente ? 'clientes' : 'visao-geral')
   const [periodo, setPeriodo] = useState(PERIODOS_LISTA[0].value)
   const [refresh, setRefresh] = useState(0)
-  const sidebarCollapsed = useSidebarWidth()
+  // Collapsed state compartilhado entre Sidebar e main (evita hack de DOM)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Seções que precisam de um cliente ativo
   const SECOES_COM_CLIENTE: Section[] = ['visao-geral','compras','notas','banco','despesas','cruzamento','projecao','config']
@@ -108,13 +93,13 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
         periodo={periodo}
         onSecao={setSecao}
         onPeriodo={setPeriodo}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
       {/* Main — offset dinâmico baseado na sidebar */}
-      <main className={cn(
-        'flex-1 flex flex-col min-h-screen transition-all duration-300',
-        'md:ml-[240px]', // fallback; JS ajusta
-      )}
+      <main
+        className="flex-1 flex flex-col min-h-screen transition-[margin] duration-300"
         style={{ marginLeft: sidebarCollapsed ? 64 : 240 }}
       >
         {/* Topbar */}

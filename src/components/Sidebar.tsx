@@ -23,6 +23,8 @@ type Props = {
   periodo: string
   onSecao: (s: Section) => void
   onPeriodo: (p: string) => void
+  collapsed?: boolean
+  onCollapsedChange?: (v: boolean) => void
 }
 
 type NavItem = { id: Section; icon: React.ElementType; label: string; badge?: string }
@@ -60,7 +62,14 @@ const NAV_ITEMS: { section: string; items: NavItem[] }[] = [
 ]
 
 export default function Sidebar(props: Props) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [localCollapsed, setLocalCollapsed] = useState(props.collapsed ?? false)
+
+  // Usa estado externo se fornecido, senão usa local
+  const collapsed = props.collapsed !== undefined ? props.collapsed : localCollapsed
+  const setCollapsed = (v: boolean) => {
+    setLocalCollapsed(v)
+    props.onCollapsedChange?.(v)
+  }
 
   return (
     <>
@@ -71,7 +80,6 @@ export default function Sidebar(props: Props) {
           'bg-sidebar border-r border-sidebar-border transition-[width] duration-300 overflow-hidden',
           collapsed ? 'w-16' : 'w-[240px]',
         )}
-        data-collapsed={collapsed}
       >
         <SidebarContent {...props} collapsed={collapsed} setCollapsed={setCollapsed} />
       </aside>

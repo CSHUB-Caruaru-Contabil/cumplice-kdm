@@ -58,6 +58,28 @@ export async function GET(
 
     const resultado = cruzarDados(clienteId, periodo, adaptBanco, adaptNotas, adaptCompras, adaptDespesas, threshAdapt)
 
+    // Persiste vínculos NF ↔ Lançamento bancário calculados pelo cruzamento
+    if (resultado.conciliacoes.length > 0) {
+      await Promise.all(resultado.conciliacoes.map(async ({ banco_id, nf_id, diferenca }) => {
+        await Promise.all([
+          prisma.bancoLancamento.update({
+            where: { id: banco_id },
+            data: {
+              nota_fiscal_id: nf_id,
+              status: diferenca === 0 ? 'ok' : 'parcial',
+            },
+          }).catch(() => {}), // ignora se já foi atualizado
+          prisma.notaFiscal.update({
+            where: { id: nf_id },
+            data: {
+              conciliada: true,
+              banco_lancamento_id: banco_id,
+            },
+          }).catch(() => {}),
+        ])
+      }))
+    }
+
     return NextResponse.json({
       faturamento_nf: adaptNotas.reduce((s, r) => s + r.valor, 0),
       entradas_banco: adaptBanco.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0),
