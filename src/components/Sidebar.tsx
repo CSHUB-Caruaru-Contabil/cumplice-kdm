@@ -18,7 +18,7 @@ import {
 
 type Props = {
   clientes: Cliente[]
-  clienteAtivo: Cliente
+  clienteAtivo: Cliente | null
   secao: Section
   periodo: string
   onCliente: (c: Cliente) => void
@@ -122,10 +122,10 @@ function SidebarContent({
       </div>
 
       {/* Client selector */}
-      {!collapsed && (
+      {!collapsed && clientes.length > 0 && (
         <div className="px-3 pt-3 space-y-2">
           <select
-            value={clienteAtivo.id}
+            value={clienteAtivo?.id ?? ''}
             onChange={e => {
               const c = clientes.find(cl => cl.id === e.target.value)
               if (c) onCliente(c)
@@ -138,16 +138,25 @@ function SidebarContent({
           </select>
 
           {/* Client card */}
-          <div className="rounded-xl bg-secondary border border-border p-3 space-y-1.5">
-            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-900 bg-gradient-to-r from-amber-400 to-amber-600 px-2 py-0.5 rounded-full">
-              ★ Prime
-            </span>
-            <p className="text-[13px] font-semibold text-sidebar-foreground leading-tight">{clienteAtivo.razao_social}</p>
-            <p className="text-[11px] text-muted-foreground">CNPJ: {clienteAtivo.cnpj}</p>
-            <span className="inline-block text-[11px] bg-primary/15 text-primary px-2 py-0.5 rounded-md">
-              {clienteAtivo.regime}
-            </span>
-          </div>
+          {clienteAtivo && (
+            <div className="rounded-xl bg-secondary border border-border p-3 space-y-1.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-900 bg-gradient-to-r from-amber-400 to-amber-600 px-2 py-0.5 rounded-full">
+                ★ Prime
+              </span>
+              <p className="text-[13px] font-semibold text-sidebar-foreground leading-tight">{clienteAtivo.razao_social}</p>
+              <p className="text-[11px] text-muted-foreground">CNPJ: {clienteAtivo.cnpj}</p>
+              <span className="inline-block text-[11px] bg-primary/15 text-primary px-2 py-0.5 rounded-md">
+                {clienteAtivo.regime}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sem cliente — dica de onboarding */}
+      {!collapsed && clientes.length === 0 && (
+        <div className="mx-3 mt-3 rounded-xl border border-dashed border-border p-3 text-center">
+          <p className="text-[11px] text-muted-foreground">Nenhuma empresa cadastrada</p>
         </div>
       )}
 

@@ -15,7 +15,7 @@ import Projecao from '@/components/sections/Projecao'
 import Config from '@/components/sections/Config'
 import Clientes from '@/components/sections/Clientes'
 import Usuarios from '@/components/sections/Usuarios'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Building2, ArrowRight } from 'lucide-react'
 
 export type Section =
   | 'visao-geral' | 'compras' | 'notas' | 'banco'
@@ -67,28 +67,22 @@ function useSidebarWidth() {
 }
 
 export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
+  const semCliente = clientes.length === 0
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(clientes[0] || null)
-  const [secao, setSecao] = useState<Section>('visao-geral')
+  // Sem cliente → abre direto em Empresas para facilitar o onboarding
+  const [secao, setSecao] = useState<Section>(semCliente ? 'clientes' : 'visao-geral')
   const [periodo, setPeriodo] = useState(PERIODOS_LISTA[0].value)
   const [refresh, setRefresh] = useState(0)
   const sidebarCollapsed = useSidebarWidth()
 
+  // Seções que precisam de um cliente ativo
+  const SECOES_COM_CLIENTE: Section[] = ['visao-geral','compras','notas','banco','despesas','cruzamento','projecao','config']
+  const precisaCliente = SECOES_COM_CLIENTE.includes(secao)
+
   function recarregar() { setRefresh(r => r + 1) }
 
-  if (!clienteAtivo) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center text-muted-foreground">
-          <p className="text-4xl mb-3">📋</p>
-          <p className="text-base font-medium mb-1">Nenhum cliente cadastrado</p>
-          <p className="text-sm">Adicione um cliente para começar</p>
-        </div>
-      </div>
-    )
-  }
-
   const [titulo, subtitulo] = SECTION_TITLES[secao]
-  const sectionProps = { clienteId: clienteAtivo.id, periodo, refresh, onRecarregar: recarregar }
+  const sectionProps = { clienteId: clienteAtivo?.id ?? '', periodo, refresh, onRecarregar: recarregar }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -114,7 +108,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
           <div>
             <h1 className="text-lg font-bold text-foreground leading-tight">{titulo}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {subtitulo} · {clienteAtivo.razao_social}
+              {subtitulo}{clienteAtivo ? ` · ${clienteAtivo.razao_social}` : ''}
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={recarregar} className="gap-2 text-xs">
@@ -125,18 +119,69 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
 
         {/* Content */}
         <div className="flex-1 p-6">
-          {secao === 'visao-geral' && <VisaoGeral {...sectionProps} cliente={clienteAtivo} />}
-          {secao === 'compras'     && <Compras {...sectionProps} />}
-          {secao === 'notas'       && <NotasFiscais {...sectionProps} />}
-          {secao === 'banco'       && <Banco {...sectionProps} />}
-          {secao === 'despesas'    && <Despesas {...sectionProps} />}
-          {secao === 'cruzamento'  && <Cruzamento {...sectionProps} />}
-          {secao === 'projecao'    && <Projecao {...sectionProps} cliente={clienteAtivo} />}
-          {secao === 'config'      && <Config {...sectionProps} cliente={clienteAtivo} onAtualizar={recarregar} />}
-          {secao === 'clientes'    && <Clientes {...sectionProps} />}
-          {secao === 'usuarios'    && <Usuarios {...sectionProps} />}
+          {/* Seções sem cliente */}
+          {secao === 'clientes' && <Clientes {...sectionProps} />}
+          {secao === 'usuarios' && <Usuarios {...sectionProps} />}
+
+          {/* Seções que precisam de cliente */}
+          {precisaCliente && !clienteAtivo && (
+            <SemCliente onIrParaEmpresas={() => setSecao('clientes')} />
+          )}
+          {precisaCliente && clienteAtivo && (
+            <>
+              {secao === 'visao-geral' && <VisaoGeral {...sectionProps} cliente={clienteAtivo} />}
+              {secao === 'compras'     && <Compras {...sectionProps} />}
+              {secao === 'notas'       && <NotasFiscais {...sectionProps} />}
+              {secao === 'banco'       && <Banco {...sectionProps} />}
+              {secao === 'despesas'    && <Despesas {...sectionProps} />}
+              {secao === 'cruzamento'  && <Cruzamento {...sectionProps} />}
+              {secao === 'projecao'    && <Projecao {...sectionProps} cliente={clienteAtivo} />}
+              {secao === 'config'      && <Config {...sectionProps} cliente={clienteAtivo} onAtualizar={recarregar} />}
+            </>
+          )}
         </div>
       </main>
+    </div>
+  )
+}
+
+// ─── Tela de onboarding quando não há cliente selecionado ─────────────────────
+function SemCliente({ onIrParaEmpresas }: { onIrParaEmpresas: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-6">
+      <div className="p-5 rounded-2xl bg-primary/10 border border-primary/20">
+        <Building2 className="h-12 w-12 text-primary mx-auto" />
+      </div>
+
+      <div>
+        <h2 className="text-xl font-bold text-foreground mb-2">
+          Bem-vindo ao Sistema Cúmplice
+        </h2>
+        <p className="text-muted-foreground text-sm max-w-md">
+          Para começar a usar o sistema, você precisa cadastrar a primeira empresa.
+          O dashboard completo ficará disponível depois disso.
+        </p>
+      </div>
+
+      <Button onClick={onIrParaEmpresas} size="lg" className="gap-2">
+        <Building2 className="h-4 w-4" />
+        Cadastrar primeira empresa
+        <ArrowRight className="h-4 w-4" />
+      </Button>
+
+      <div className="grid grid-cols-3 gap-4 mt-4 max-w-xl w-full">
+        {[
+          { emoji: '📊', titulo: 'Dashboard', desc: 'KPIs e alertas em tempo real' },
+          { emoji: '🔍', titulo: 'Cruzamento', desc: 'NF × Banco automático' },
+          { emoji: '📈', titulo: 'Projeção', desc: 'Simples × Presumido' },
+        ].map(item => (
+          <div key={item.titulo} className="rounded-xl border border-border bg-card p-4 text-left opacity-50">
+            <p className="text-2xl mb-2">{item.emoji}</p>
+            <p className="text-sm font-semibold text-foreground">{item.titulo}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
