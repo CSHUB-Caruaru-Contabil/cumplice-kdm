@@ -254,6 +254,82 @@ export function Toast({ msg, onHide }: { msg: string; onHide: () => void }) {
   )
 }
 
+// ─── Modal ───────────────────────────────────────────────────────────────────
+export function Modal({ title, children, onClose }: {
+  title: string; children: React.ReactNode; onClose: () => void
+}) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+        padding: 24, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{title}</div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20,
+            cursor: 'pointer', lineHeight: 1, padding: '0 4px',
+          }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ─── ConfirmDelete ────────────────────────────────────────────────────────────
+export function ConfirmDelete({ msg = 'Excluir este registro?', onConfirm, onCancel }: {
+  msg?: string; onConfirm: () => void; onCancel: () => void
+}) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--red)', borderRadius: 12,
+        padding: '24px 28px', maxWidth: 360, textAlign: 'center',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ fontSize: 28, marginBottom: 12 }}>🗑️</div>
+        <div style={{ fontSize: 14, color: 'var(--text)', marginBottom: 20 }}>{msg}</div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button onClick={onCancel} style={{
+            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--muted)',
+            padding: '8px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600,
+          }}>Cancelar</button>
+          <button onClick={onConfirm} style={{
+            background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5',
+            padding: '8px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700,
+          }}>Excluir</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── RowActions ───────────────────────────────────────────────────────────────
+export function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      <button onClick={onEdit} title="Editar" style={{
+        background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)',
+        color: 'var(--accent2)', width: 28, height: 28, borderRadius: 6,
+        cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>✏️</button>
+      <button onClick={onDelete} title="Excluir" style={{
+        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+        color: '#fca5a5', width: 28, height: 28, borderRadius: 6,
+        cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>🗑️</button>
+    </div>
+  )
+}
+
 /** Formata número como moeda BRL. Retorna "R$ —" para valores inválidos. */
 export function brl(valor: number | null | undefined): string {
   if (valor == null || !isFinite(valor) || isNaN(valor)) return 'R$ —'

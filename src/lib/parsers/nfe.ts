@@ -12,7 +12,8 @@ export type NFeParsed = {
   cnpj_destinatario?: string
   razao_destinatario?: string
   natureza_operacao: string
-  tipo: 'entrada' | 'saida' // tpNF: 0=entrada, 1=saida
+  tipo: 'entrada' | 'saida'
+  formato: 'nfe' | 'nfse'   // distingue produto x serviço
   itens: NFeItem[]
   erro?: string
 }
@@ -42,82 +43,150 @@ function getText(obj: unknown): string {
 }
 
 function getNum(obj: unknown): number {
-  const t = getText(obj)
-  return parseFloat(t) || 0
+  return parseFloat(getText(obj)) || 0
 }
 
+// ─── NF-e (produtos) ─────────────────────────────────────────────────────────
+function parseNFe(result: Record<string, unknown>): NFeParsed {
+  const root = result.nfeProc || result.NFeProc || result
+  const nfe = (root as Record<string, unknown>).NFe || (root as Record<string, unknown>).nfe
+    || result.NFe || result.nfe
+  const infNFe = (nfe as Record<string, unknown>)?.infNFe
+
+  if (!infNFe) throw new Error('Estrutura NF-e inválida — infNFe não encontrado')
+
+  const inf = infNFe as Record<string, unknown>
+  const chave = getText(inf['@_Id'] || '').replace('NFe', '')
+  const ide = (inf.ide || {}) as Record<string, unknown>
+  const emit = (inf.emit || {}) as Record<string, unknown>
+  const dest = (inf.dest || {}) as Record<string, unknown>
+  const total = ((inf.total || {}) as Record<string, unknown>).ICMSTot || {}
+
+  const det = inf.det
+  const detArray = Array.isArray(det) ? det : det ? [det] : []
+  const itens: NFeItem[] = detArray.map((d: unknown) => {
+    const prod = ((d as Record<string, unknown>).prod || {}) as Record<string, unknown>
+    return {
+      descricao: getText(prod.xProd),
+      cfop: getText(prod.CFOP),
+      valor: getNum(prod.vProd),
+      quantidade: getNum(prod.qCom),
+      unidade: getText(prod.uCom),
+      ncm: getText(prod.NCM),
+    }
+  })
+
+  return {
+    chave_acesso: chave,
+    numero: getText(ide.nNF),
+    serie: getText(ide.serie),
+    data_emissao: getText(ide.dhEmi || ide.dEmi).substring(0, 10),
+    cfop: itens[0]?.cfop || '',
+    valor_total: getNum((total as Record<string, unknown>).vNF || (total as Record<string, unknown>).vProd),
+    cnpj_emitente: getText(emit.CNPJ).replace(/\D/g, ''),
+    razao_emitente: getText(emit.xNome || emit.xFant),
+    cnpj_destinatario: getText(dest.CNPJ).replace(/\D/g, '') || undefined,
+    razao_destinatario: getText(dest.xNome) || undefined,
+    natureza_operacao: getText(ide.natOp),
+    tipo: getText(ide.tpNF) === '0' ? 'entrada' : 'saida',
+    formato: 'nfe',
+    itens,
+  }
+}
+
+// ─── NFS-e (serviços) — padrão nacional SPED/ABRASF ─────────────────────────
+function parseNFSe(result: Record<string, unknown>): NFeParsed {
+  // Suporta raiz NFSe ou CompNfse
+  const root = result.NFSe || result.CompNfse || result
+  const infNFSe = (root as Record<string, unknown>).infNFSe
+    || ((root as Record<string, unknown>).NFSe as Record<string, unknown>)?.infNFSe
+
+  if (!infNFSe) throw new Error('Estrutura NFS-e inválida — infNFSe não encontrado')
+
+  const inf = infNFSe as Record<string, unknown>
+
+  // Emitente
+  const emit = (inf.emit || {}) as Record<string, unknown>
+
+  // Tomador (dentro de DPS > infDPS > toma)
+  const dps = inf.DPS as Record<string, unknown> | undefined
+  const infDPS = dps?.infDPS as Record<string, unknown> | undefined
+  const toma = infDPS?.toma as Record<string, unknown> | undefined
+
+  // Serviço
+  const serv = infDPS?.serv as Record<string, unknown> | undefined
+  const cServ = (serv?.cServ || {}) as Record<string, unknown>
+  const descServico = getText(cServ.xDescServ) || 'Serviço'
+  const cTribNac = getText(cServ.cTribNac) || ''
+
+  // Valores — tenta na raiz e dentro de DPS
+  const valoresRaiz = (inf.valores || {}) as Record<string, unknown>
+  const valoresDPS = (infDPS?.valores || {}) as Record<string, unknown>
+  const vServPrest = (valoresDPS.vServPrest || {}) as Record<string, unknown>
+
+  const valor = getNum(valoresRaiz.vLiq || valoresRaiz.vServ || vServPrest.vServ || 0)
+
+  // Data — dhProc é data de processamento; dhEmi dentro de infDPS é data de emissão
+  const dhEmi = getText(infDPS?.dhEmi || inf.dhProc || '')
+  const dataEmissao = dhEmi.substring(0, 10)
+
+  // Número
+  const numero = getText(inf.nNFSe || inf.nDFSe || '')
+
+  // Chave — usa o atributo Id do infNFSe
+  const chave = getText(inf['@_Id'] || `NFS${numero}`)
+
+  // CFOP padrão para serviços: 5933 (dentro do município) ou derivado do código tributário
+  const cfop = cTribNac ? '5933' : '5933'
+
+  return {
+    chave_acesso: chave,
+    numero,
+    serie: getText(infDPS?.serie || ''),
+    data_emissao: dataEmissao,
+    cfop,
+    valor_total: valor,
+    cnpj_emitente: getText(emit.CNPJ).replace(/\D/g, ''),
+    razao_emitente: getText(emit.xNome || emit.xFant),
+    cnpj_destinatario: getText(toma?.CNPJ || '').replace(/\D/g, '') || undefined,
+    razao_destinatario: getText(toma?.xNome || '') || undefined,
+    natureza_operacao: descServico.substring(0, 80),
+    tipo: 'saida', // NFS-e emitida = saída de serviço
+    formato: 'nfse',
+    itens: [{
+      descricao: descServico.substring(0, 120),
+      cfop,
+      valor,
+      quantidade: 1,
+      unidade: 'UN',
+    }],
+  }
+}
+
+// ─── Detector automático ──────────────────────────────────────────────────────
 export async function parseNFeXML(xmlContent: string): Promise<NFeParsed> {
   try {
-    const result = parser.parse(xmlContent)
+    const result = parser.parse(xmlContent) as Record<string, unknown>
 
-    // Suporte a nfeProc (XML com protocolo) e NFeProc
-    const root = result.nfeProc || result.NFeProc || result
-    const nfe = root.NFe || root.nfe || result.NFe || result.nfe
-    const infNFe = nfe?.infNFe
+    // Detecta pelo namespace ou elemento raiz
+    const isNFSe =
+      xmlContent.includes('nfse.gov.br') ||
+      xmlContent.includes('<NFSe') ||
+      xmlContent.includes('<CompNfse') ||
+      xmlContent.includes('infNFSe')
 
-    if (!infNFe) {
-      throw new Error('Estrutura XML inválida — infNFe não encontrado')
-    }
-
-    const chave = getText(infNFe['@_Id'] || '').replace('NFe', '')
-
-    const ide = infNFe.ide || {}
-    const emit = infNFe.emit || {}
-    const dest = infNFe.dest || {}
-    const total = infNFe.total?.ICMSTot || {}
-
-    // CFOP principal (primeiro item)
-    const det = infNFe.det
-    const detArray = Array.isArray(det) ? det : det ? [det] : []
-
-    const itens: NFeItem[] = detArray.map((d: Record<string, unknown>) => {
-      const prod = (d.prod || {}) as Record<string, unknown>
-      return {
-        descricao: getText(prod.xProd),
-        cfop: getText(prod.CFOP),
-        valor: getNum(prod.vProd),
-        quantidade: getNum(prod.qCom),
-        unidade: getText(prod.uCom),
-        ncm: getText(prod.NCM),
-      }
-    })
-
-    const cfop_principal = itens[0]?.cfop || getText(ide.CFOP) || ''
-
-    return {
-      chave_acesso: chave,
-      numero: getText(ide.nNF),
-      serie: getText(ide.serie),
-      data_emissao: getText(ide.dhEmi || ide.dEmi).substring(0, 10),
-      cfop: cfop_principal,
-      valor_total: getNum(total.vNF || total.vProd),
-      cnpj_emitente: getText(emit.CNPJ).replace(/\D/g, ''),
-      razao_emitente: getText(emit.xNome || emit.xFant),
-      cnpj_destinatario: getText(dest.CNPJ).replace(/\D/g, '') || undefined,
-      razao_destinatario: getText(dest.xNome) || undefined,
-      natureza_operacao: getText(ide.natOp),
-      tipo: getText(ide.tpNF) === '0' ? 'entrada' : 'saida',
-      itens,
-    }
+    return isNFSe ? parseNFSe(result) : parseNFe(result)
   } catch (err) {
     return {
-      chave_acesso: '',
-      numero: '',
-      serie: '',
-      data_emissao: '',
-      cfop: '',
-      valor_total: 0,
-      cnpj_emitente: '',
-      razao_emitente: '',
-      natureza_operacao: '',
-      tipo: 'saida',
-      itens: [],
+      chave_acesso: '', numero: '', serie: '', data_emissao: '',
+      cfop: '', valor_total: 0, cnpj_emitente: '', razao_emitente: '',
+      natureza_operacao: '', tipo: 'saida', formato: 'nfe', itens: [],
       erro: err instanceof Error ? err.message : 'Erro desconhecido ao parsear XML',
     }
   }
 }
 
-// Processa múltiplos XMLs e retorna resultados
+// ─── Processa múltiplos arquivos ──────────────────────────────────────────────
 export async function parseMultiplosXML(
   files: File[]
 ): Promise<{ sucesso: NFeParsed[]; erros: { arquivo: string; erro: string }[] }> {

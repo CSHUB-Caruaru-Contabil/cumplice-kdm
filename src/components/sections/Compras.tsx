@@ -3,7 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Compra } from '@/lib/supabase/types'
-import { Badge, Btn, Card, CardTitle, Input, Select, Table, Td, Toast, Tr, UploadZone, brl } from '@/components/ui'
+import {
+  Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
+  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl,
+} from '@/components/ui'
 import { parseMultiplosXML } from '@/lib/parsers/nfe'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
@@ -14,8 +17,10 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
   const supabase = createClient()
   const [compras, setCompras] = useState<Compra[]>([])
   const [toast, setToast] = useState('')
+  const [editando, setEditando] = useState<Compra | null>(null)
+  const [excluindo, setExcluindo] = useState<string | null>(null)
 
-  // Form state
+  // Form add
   const [data, setData] = useState(hoje)
   const [fornecedor, setFornecedor] = useState('')
   const [valor, setValor] = useState('')
@@ -27,7 +32,8 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
   const [importando, setImportando] = useState(false)
 
   const carregar = useCallback(async () => {
-    const { data: rows } = await supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
+    const { data: rows } = await supabase.from('compras').select('*')
+      .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
     setCompras((rows || []) as Compra[])
   }, [clienteId, periodo])
 
@@ -41,41 +47,44 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
       fornecedor, valor: parseFloat(valor), nf_entrada: nf || null,
       categoria, pagamento, cnpj_fornecedor: cnpjFornecedor || null,
     })
-    if (error) {
-      setToast(`Erro ao salvar: ${error.message}`)
-      setSalvando(false)
-      return
-    }
+    if (error) { setToast(`Erro ao salvar: ${error.message}`); setSalvando(false); return }
     setFornecedor(''); setValor(''); setNF(''); setCNPJ('')
-    await carregar()
-    onRecarregar()
-    setToast('Compra adicionada!')
-    setSalvando(false)
+    await carregar(); onRecarregar(); setToast('Compra adicionada!'); setSalvando(false)
+  }
+
+  async function salvarEdicao() {
+    if (!editando) return
+    const { error } = await supabase.from('compras').update({
+      data: editando.data, fornecedor: editando.fornecedor,
+      valor: editando.valor, nf_entrada: editando.nf_entrada || null,
+      categoria: editando.categoria, pagamento: editando.pagamento,
+      cnpj_fornecedor: editando.cnpj_fornecedor || null,
+    }).eq('id', editando.id)
+    if (error) { setToast(`Erro ao editar: ${error.message}`); return }
+    setEditando(null); await carregar(); onRecarregar(); setToast('Compra atualizada!')
+  }
+
+  async function confirmarExclusao() {
+    if (!excluindo) return
+    const { error } = await supabase.from('compras').delete().eq('id', excluindo)
+    if (error) { setToast(`Erro ao excluir: ${error.message}`); setExcluindo(null); return }
+    setExcluindo(null); await carregar(); onRecarregar(); setToast('Compra excluída!')
   }
 
   async function importarXML(files: File[]) {
     setImportando(true)
     const { sucesso, erros } = await parseMultiplosXML(files)
-
     for (const nfe of sucesso) {
-      // Só importa NFs de entrada (tipo 0 = entrada)
       if (nfe.tipo !== 'entrada') continue
       await supabase.from('compras').insert({
-        cliente_id: clienteId, periodo,
-        data: nfe.data_emissao,
-        fornecedor: nfe.razao_emitente,
-        cnpj_fornecedor: nfe.cnpj_emitente,
-        valor: nfe.valor_total,
-        nf_entrada: nfe.numero,
-        categoria: 'Mercadoria para Revenda',
-        pagamento: 'Importado XML',
+        cliente_id: clienteId, periodo, data: nfe.data_emissao,
+        fornecedor: nfe.razao_emitente, cnpj_fornecedor: nfe.cnpj_emitente,
+        valor: nfe.valor_total, nf_entrada: nfe.numero,
+        categoria: 'Mercadoria para Revenda', pagamento: 'Importado XML',
       })
     }
-
-    await carregar()
-    onRecarregar()
-    const msg = `${sucesso.length} NF(s) importada(s)${erros.length ? ` · ${erros.length} erro(s)` : ''}`
-    setToast(msg)
+    await carregar(); onRecarregar()
+    setToast(`${sucesso.length} NF(s) importada(s)${erros.length ? ` · ${erros.length} erro(s)` : ''}`)
     setImportando(false)
   }
 
@@ -90,19 +99,14 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
           <Input label="Data" type="date" value={data} onChange={e => setData(e.target.value)} />
           <Input label="Fornecedor" value={fornecedor} onChange={e => setFornecedor(e.target.value)} placeholder="Nome do fornecedor" />
           <Input label="Valor (R$)" type="number" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />
-          <Input label="Nº NF Entrada" value={nf} onChange={e => setNF(e.target.value)} placeholder="Ex: 001234 (vazio = sem NF)" />
+          <Input label="Nº NF Entrada" value={nf} onChange={e => setNF(e.target.value)} placeholder="001234 (vazio = sem NF)" />
           <Select label="Categoria" value={categoria} onChange={e => setCategoria(e.target.value)}>
-            <option>Mercadoria para Revenda</option>
-            <option>Matéria-Prima</option>
-            <option>Embalagens</option>
-            <option>Higiene/Limpeza</option>
-            <option>Outro</option>
+            <option>Mercadoria para Revenda</option><option>Matéria-Prima</option>
+            <option>Embalagens</option><option>Higiene/Limpeza</option><option>Outro</option>
           </Select>
           <Select label="Forma de Pagamento" value={pagamento} onChange={e => setPagamento(e.target.value)}>
-            <option>À Vista (Banco)</option>
-            <option>Boleto 30d</option>
-            <option>Boleto 60d</option>
-            <option>Cartão Empresarial</option>
+            <option>À Vista (Banco)</option><option>Boleto 30d</option>
+            <option>Boleto 60d</option><option>Cartão Empresarial</option>
           </Select>
           <Input label="CNPJ Fornecedor" value={cnpjFornecedor} onChange={e => setCNPJ(e.target.value)} placeholder="00.000.000/0001-00" />
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -112,7 +116,8 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <UploadZone icon="📂" label="Importar XMLs de NF-e de Entrada" sub={importando ? 'Importando...' : 'Arraste ou clique — XML'}
+          <UploadZone icon="📂" label="Importar XMLs de NF-e de Entrada"
+            sub={importando ? 'Importando...' : 'Arraste ou clique — XML'}
             onFiles={importarXML} accept=".xml" />
         </div>
       </Card>
@@ -121,7 +126,7 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
         <CardTitle sub={`Total: ${brl(total)} · ${compras.length} lançamentos${semNF > 0 ? ` · ${semNF} sem NF ⚠` : ''}`}>
           Compras do Mês
         </CardTitle>
-        <Table headers={['Data', 'Fornecedor', 'Categoria', 'Valor', 'NF Entrada', 'Pagamento', 'Status']}>
+        <Table headers={['Data', 'Fornecedor', 'Categoria', 'Valor', 'NF Entrada', 'Pagamento', 'Status', '']}>
           {compras.map(c => (
             <Tr key={c.id}>
               <Td>{c.data}</Td>
@@ -131,11 +136,44 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
               <Td mono>{c.nf_entrada || <span style={{ color: 'var(--red)' }}>Sem NF ⚠</span>}</Td>
               <Td>{c.pagamento}</Td>
               <Td><Badge variant={c.status === 'ok' ? 'ok' : 'err'}>{c.status === 'ok' ? '✓ OK' : '⚠ Sem NF'}</Badge></Td>
+              <Td><RowActions onEdit={() => setEditando({ ...c })} onDelete={() => setExcluindo(c.id)} /></Td>
             </Tr>
           ))}
         </Table>
         {compras.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>Nenhuma compra registrada</div>}
       </Card>
+
+      {/* Modal de Edição */}
+      {editando && (
+        <Modal title="Editar Compra" onClose={() => setEditando(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Input label="Data" type="date" value={editando.data} onChange={e => setEditando({ ...editando, data: e.target.value })} />
+            <Input label="Fornecedor" value={editando.fornecedor} onChange={e => setEditando({ ...editando, fornecedor: e.target.value })} />
+            <Input label="Valor (R$)" type="number" value={String(editando.valor)} onChange={e => setEditando({ ...editando, valor: parseFloat(e.target.value) || 0 })} />
+            <Input label="Nº NF Entrada" value={editando.nf_entrada || ''} onChange={e => setEditando({ ...editando, nf_entrada: e.target.value || null })} placeholder="Vazio = sem NF" />
+            <Select label="Categoria" value={editando.categoria || ''} onChange={e => setEditando({ ...editando, categoria: e.target.value })}>
+              <option>Mercadoria para Revenda</option><option>Matéria-Prima</option>
+              <option>Embalagens</option><option>Higiene/Limpeza</option><option>Outro</option>
+            </Select>
+            <Select label="Pagamento" value={editando.pagamento || ''} onChange={e => setEditando({ ...editando, pagamento: e.target.value })}>
+              <option>À Vista (Banco)</option><option>Boleto 30d</option>
+              <option>Boleto 60d</option><option>Cartão Empresarial</option>
+            </Select>
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+            <Btn variant="ghost" onClick={() => setEditando(null)}>Cancelar</Btn>
+            <Btn onClick={salvarEdicao}>Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {excluindo && (
+        <ConfirmDelete
+          msg="Excluir esta compra? Esta ação não pode ser desfeita."
+          onConfirm={confirmarExclusao}
+          onCancel={() => setExcluindo(null)}
+        />
+      )}
 
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
     </div>

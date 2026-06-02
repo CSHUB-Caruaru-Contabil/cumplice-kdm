@@ -3,7 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { NotaFiscal } from '@/lib/supabase/types'
-import { Badge, Btn, Card, CardTitle, Input, Select, Table, Td, Toast, Tr, UploadZone, brl } from '@/components/ui'
+import {
+  Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
+  RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl,
+} from '@/components/ui'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -13,6 +16,8 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
   const supabase = createClient()
   const [notas, setNotas] = useState<NotaFiscal[]>([])
   const [toast, setToast] = useState('')
+  const [editando, setEditando] = useState<NotaFiscal | null>(null)
+  const [excluindo, setExcluindo] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [importando, setImportando] = useState(false)
 
@@ -25,7 +30,8 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
   const [dataRec, setDataRec] = useState(hoje)
 
   const carregar = useCallback(async () => {
-    const { data: rows } = await supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
+    const { data: rows } = await supabase.from('notas_fiscais').select('*')
+      .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
     setNotas((rows || []) as NotaFiscal[])
   }, [clienteId, periodo])
 
@@ -40,16 +46,28 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
       valor: parseFloat(valor), cfop, recebimento,
       data_recebimento: dataRec, conciliada: false,
     })
-    if (error) {
-      setToast(`Erro ao salvar: ${error.message}`)
-      setSalvando(false)
-      return
-    }
+    if (error) { setToast(`Erro ao salvar: ${error.message}`); setSalvando(false); return }
     setNumero(''); setValor(''); setClienteNF('')
-    await carregar()
-    onRecarregar()
-    setToast('NF adicionada!')
-    setSalvando(false)
+    await carregar(); onRecarregar(); setToast('NF adicionada!'); setSalvando(false)
+  }
+
+  async function salvarEdicao() {
+    if (!editando) return
+    const { error } = await supabase.from('notas_fiscais').update({
+      data: editando.data, numero: editando.numero,
+      cliente_nf: editando.cliente_nf, valor: editando.valor,
+      cfop: editando.cfop, recebimento: editando.recebimento,
+      data_recebimento: editando.data_recebimento,
+    }).eq('id', editando.id)
+    if (error) { setToast(`Erro ao editar: ${error.message}`); return }
+    setEditando(null); await carregar(); onRecarregar(); setToast('NF atualizada!')
+  }
+
+  async function confirmarExclusao() {
+    if (!excluindo) return
+    const { error } = await supabase.from('notas_fiscais').delete().eq('id', excluindo)
+    if (error) { setToast(`Erro ao excluir: ${error.message}`); setExcluindo(null); return }
+    setExcluindo(null); await carregar(); onRecarregar(); setToast('NF excluída!')
   }
 
   async function importarXML(files: File[]) {
@@ -57,11 +75,9 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
     const formData = new FormData()
     files.forEach(f => formData.append('files', f))
     formData.append('periodo', periodo)
-
     const res = await fetch(`/api/clientes/${clienteId}/importar-nfe`, { method: 'POST', body: formData })
     const result = await res.json()
-    await carregar()
-    onRecarregar()
+    await carregar(); onRecarregar()
     setToast(`${result.importados?.length || 0} NF(s) importada(s)`)
     setImportando(false)
   }
@@ -83,11 +99,8 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
             <option value="5949">5949 – Outra saída</option>
           </Select>
           <Select label="Forma de Recebimento" value={recebimento} onChange={e => setRecebimento(e.target.value)}>
-            <option>À Vista</option>
-            <option>Cartão Débito</option>
-            <option>Cartão Crédito</option>
-            <option>Pix</option>
-            <option>Boleto</option>
+            <option>À Vista</option><option>Cartão Débito</option><option>Cartão Crédito</option>
+            <option>Pix</option><option>Boleto</option>
           </Select>
           <Input label="Recebimento Previsto" type="date" value={dataRec} onChange={e => setDataRec(e.target.value)} />
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -97,14 +110,15 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <UploadZone icon="🧾" label="Importar XMLs de NF-e Emitidas" sub={importando ? 'Importando...' : 'Exportado do SEFAZ ou ERP — XML'}
+          <UploadZone icon="🧾" label="Importar XMLs de NF-e Emitidas"
+            sub={importando ? 'Importando...' : 'Exportado do SEFAZ ou ERP — XML'}
             onFiles={importarXML} accept=".xml" />
         </div>
       </Card>
 
       <Card>
         <CardTitle sub={`Total: ${brl(total)} · ${notas.length} notas`}>NFs Emitidas no Mês</CardTitle>
-        <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP', 'Valor', 'Recebimento', 'Banco']}>
+        <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP', 'Valor', 'Recebimento', 'Banco', '']}>
           {notas.map(n => (
             <Tr key={n.id}>
               <Td>{n.data}</Td>
@@ -114,11 +128,40 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
               <Td>{brl(n.valor)}</Td>
               <Td>{n.recebimento}</Td>
               <Td><Badge variant={n.conciliada ? 'ok' : 'warn'}>{n.conciliada ? '✓ Conciliado' : 'Pendente'}</Badge></Td>
+              <Td><RowActions onEdit={() => setEditando({ ...n })} onDelete={() => setExcluindo(n.id)} /></Td>
             </Tr>
           ))}
         </Table>
         {notas.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>Nenhuma NF registrada</div>}
       </Card>
+
+      {editando && (
+        <Modal title="Editar Nota Fiscal" onClose={() => setEditando(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <Input label="Data" type="date" value={editando.data} onChange={e => setEditando({ ...editando, data: e.target.value })} />
+            <Input label="Nº da NF" value={editando.numero} onChange={e => setEditando({ ...editando, numero: e.target.value })} />
+            <Input label="Cliente" value={editando.cliente_nf || ''} onChange={e => setEditando({ ...editando, cliente_nf: e.target.value })} />
+            <Input label="Valor (R$)" type="number" value={String(editando.valor)} onChange={e => setEditando({ ...editando, valor: parseFloat(e.target.value) || 0 })} />
+            <Select label="CFOP" value={editando.cfop || ''} onChange={e => setEditando({ ...editando, cfop: e.target.value })}>
+              <option value="5102">5102 – Venda de mercadoria</option>
+              <option value="5405">5405 – Venda substituição tributária</option>
+              <option value="5949">5949 – Outra saída</option>
+            </Select>
+            <Select label="Recebimento" value={editando.recebimento || ''} onChange={e => setEditando({ ...editando, recebimento: e.target.value })}>
+              <option>À Vista</option><option>Cartão Débito</option><option>Cartão Crédito</option>
+              <option>Pix</option><option>Boleto</option>
+            </Select>
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+            <Btn variant="ghost" onClick={() => setEditando(null)}>Cancelar</Btn>
+            <Btn onClick={salvarEdicao}>Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {excluindo && (
+        <ConfirmDelete msg="Excluir esta nota fiscal?" onConfirm={confirmarExclusao} onCancel={() => setExcluindo(null)} />
+      )}
 
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
     </div>

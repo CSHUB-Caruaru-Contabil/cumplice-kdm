@@ -37,6 +37,7 @@ export async function POST(
         if (existente) { duplicados.push(`NF ${nfe.numero}`); continue }
       }
 
+      const label = nfe.formato === 'nfse' ? 'NFS-e' : 'NF-e'
       await prisma.notaFiscal.create({
         data: {
           cliente_id: clienteId, periodo,
@@ -47,7 +48,7 @@ export async function POST(
           cfop: nfe.cfop, valor: nfe.valor_total, conciliada: false,
         },
       })
-      importados.push(`NF ${nfe.numero} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)
+      importados.push(`${label} ${nfe.numero} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)
     }
 
     return NextResponse.json({ importados, erros, duplicados })
