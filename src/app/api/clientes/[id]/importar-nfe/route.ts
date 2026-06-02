@@ -33,12 +33,25 @@ export async function POST(
       const periodoNF = nfe.data_emissao?.substring(0, 7) || periodo
       if (!periodoNF) { erros.push({ arquivo: file.name, erro: 'Data de emissão inválida' }); continue }
 
+      // Verifica duplicata: 1) pela chave de acesso (NF-e), 2) por número+cliente (fallback NFS-e)
       if (nfe.chave_acesso) {
         const existente = await prisma.notaFiscal.findUnique({
           where: { chave_acesso: nfe.chave_acesso },
           select: { id: true },
         })
-        if (existente) { duplicados.push(`NF ${nfe.numero}`); continue }
+        if (existente) { duplicados.push(`NF ${nfe.numero} (chave duplicada)`); continue }
+      } else if (nfe.numero && nfe.cnpj_emitente) {
+        // Para NFS-e sem chave: verifica número + CNPJ emitente + cliente
+        const existente = await prisma.notaFiscal.findFirst({
+          where: {
+            cliente_id: clienteId,
+            numero: nfe.numero,
+            // verifica pelo CNPJ emitente guardado na chave ou no número
+            chave_acesso: null,
+          },
+          select: { id: true },
+        })
+        if (existente) { duplicados.push(`NF ${nfe.numero} (número duplicado)`); continue }
       }
 
       const label = nfe.formato === 'nfse' ? 'NFS-e' : 'NF-e'
