@@ -46,14 +46,33 @@ function getNum(obj: unknown): number {
   return parseFloat(getText(obj)) || 0
 }
 
+// Busca infNFe em qualquer nível da estrutura parseada
+function encontrarInfoNFe(obj: unknown, profundidade = 0): unknown {
+  if (profundidade > 6 || !obj || typeof obj !== 'object') return null
+  const o = obj as Record<string, unknown>
+  if (o.infNFe) return o.infNFe
+  // Procura em cada chave filha
+  for (const val of Object.values(o)) {
+    const found = encontrarInfoNFe(val, profundidade + 1)
+    if (found) return found
+  }
+  return null
+}
+
 // ─── NF-e (produtos) ─────────────────────────────────────────────────────────
 function parseNFe(result: Record<string, unknown>): NFeParsed {
+  // Tenta os caminhos mais comuns primeiro (rápido)
   const root = result.nfeProc || result.NFeProc || result
   const nfe = (root as Record<string, unknown>).NFe || (root as Record<string, unknown>).nfe
     || result.NFe || result.nfe
   const infNFe = (nfe as Record<string, unknown>)?.infNFe
+    // Fallback: busca recursiva em toda a árvore (cobre variações de estrutura)
+    || encontrarInfoNFe(result)
 
-  if (!infNFe) throw new Error('Estrutura NF-e inválida — infNFe não encontrado')
+  if (!infNFe) {
+    const chaves = Object.keys(result).join(', ')
+    throw new Error(`Estrutura NF-e inválida — infNFe não encontrado. Chaves no root: [${chaves}]`)
+  }
 
   const inf = infNFe as Record<string, unknown>
   const chave = getText(inf['@_Id'] || '').replace('NFe', '')
