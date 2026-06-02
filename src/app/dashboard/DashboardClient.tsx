@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Cliente } from '@/lib/supabase/types'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import Sidebar from '@/components/Sidebar'
 import VisaoGeral from '@/components/sections/VisaoGeral'
 import Compras from '@/components/sections/Compras'
@@ -11,6 +13,7 @@ import Despesas from '@/components/sections/Despesas'
 import Cruzamento from '@/components/sections/Cruzamento'
 import Projecao from '@/components/sections/Projecao'
 import Config from '@/components/sections/Config'
+import { RefreshCw } from 'lucide-react'
 
 export type Section =
   | 'visao-geral' | 'compras' | 'notas' | 'banco'
@@ -18,13 +21,13 @@ export type Section =
 
 const SECTION_TITLES: Record<Section, [string, string]> = {
   'visao-geral': ['Visão Geral', 'Painel de alertas e KPIs do mês'],
-  'compras': ['Compras', 'Registro de compras e notas de entrada'],
-  'notas': ['Notas Fiscais', 'NFs emitidas no período'],
-  'banco': ['Banco', 'Movimentações bancárias'],
-  'despesas': ['Despesas', 'Despesas operacionais do mês'],
-  'cruzamento': ['Cruzamento de Dados', 'Divergências identificadas automaticamente'],
-  'projecao': ['Projeção Tributária', 'Estimativa de impostos e recomendações'],
-  'config': ['Perfil do Cliente', 'Configurações e thresholds de alerta'],
+  'compras':     ['Compras', 'Registro de compras e notas de entrada'],
+  'notas':       ['Notas Fiscais', 'NFs emitidas no período'],
+  'banco':       ['Banco', 'Movimentações bancárias'],
+  'despesas':    ['Despesas', 'Despesas operacionais do mês'],
+  'cruzamento':  ['Cruzamento de Dados', 'Divergências identificadas automaticamente'],
+  'projecao':    ['Projeção Tributária', 'Estimativa de impostos e recomendações'],
+  'config':      ['Perfil do Cliente', 'Configurações e thresholds de alerta'],
 }
 
 // Gera lista de períodos: mês atual + 11 meses anteriores
@@ -44,32 +47,47 @@ function gerarPeriodos(): { value: string; label: string }[] {
 
 export const PERIODOS_LISTA = gerarPeriodos()
 
+// Detecta se sidebar está collapsed para ajustar o margin
+function useSidebarWidth() {
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      const aside = document.querySelector('aside')
+      setCollapsed(aside?.classList.contains('w-\\[64px\\]') ?? false)
+    })
+    const aside = document.querySelector('aside')
+    if (aside) obs.observe(aside, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return collapsed
+}
+
 export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
   const [clienteAtivo, setClienteAtivo] = useState<Cliente | null>(clientes[0] || null)
   const [secao, setSecao] = useState<Section>('visao-geral')
   const [periodo, setPeriodo] = useState(PERIODOS_LISTA[0].value)
   const [refresh, setRefresh] = useState(0)
+  const sidebarCollapsed = useSidebarWidth()
 
   function recarregar() { setRefresh(r => r + 1) }
 
   if (!clienteAtivo) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 16, marginBottom: 8 }}>Nenhum cliente cadastrado</div>
-          <div style={{ fontSize: 13 }}>Adicione um cliente para começar</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center text-muted-foreground">
+          <p className="text-4xl mb-3">📋</p>
+          <p className="text-base font-medium mb-1">Nenhum cliente cadastrado</p>
+          <p className="text-sm">Adicione um cliente para começar</p>
         </div>
       </div>
     )
   }
 
   const [titulo, subtitulo] = SECTION_TITLES[secao]
-
   const sectionProps = { clienteId: clienteAtivo.id, periodo, refresh, onRecarregar: recarregar }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="flex min-h-screen bg-background">
       <Sidebar
         clientes={clientes}
         clienteAtivo={clienteAtivo}
@@ -80,45 +98,39 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
         onPeriodo={setPeriodo}
       />
 
-      <main style={{ marginLeft: 240, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* Main — offset dinâmico baseado na sidebar */}
+      <main className={cn(
+        'flex-1 flex flex-col min-h-screen transition-all duration-300',
+        'md:ml-[240px]', // fallback; JS ajusta
+      )}
+        style={{ marginLeft: sidebarCollapsed ? 64 : 240 }}
+      >
         {/* Topbar */}
-        <div style={{
-          background: 'var(--surface)', borderBottom: '1px solid var(--border)',
-          padding: '14px 28px', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50,
-        }}>
+        <header className="sticky top-0 z-40 flex items-center justify-between px-6 py-3.5 bg-card border-b border-border">
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>{titulo}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>
+            <h1 className="text-lg font-bold text-foreground leading-tight">{titulo}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {subtitulo} · {clienteAtivo.razao_social}
-            </div>
+            </p>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={recarregar} style={btnStyle('ghost')}>🔄 Atualizar</button>
-          </div>
-        </div>
+          <Button variant="outline" size="sm" onClick={recarregar} className="gap-2 text-xs">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Atualizar
+          </Button>
+        </header>
 
         {/* Content */}
-        <div style={{ padding: '24px 28px', flex: 1 }}>
+        <div className="flex-1 p-6">
           {secao === 'visao-geral' && <VisaoGeral {...sectionProps} cliente={clienteAtivo} />}
-          {secao === 'compras' && <Compras {...sectionProps} />}
-          {secao === 'notas' && <NotasFiscais {...sectionProps} />}
-          {secao === 'banco' && <Banco {...sectionProps} />}
-          {secao === 'despesas' && <Despesas {...sectionProps} />}
-          {secao === 'cruzamento' && <Cruzamento {...sectionProps} />}
-          {secao === 'projecao' && <Projecao {...sectionProps} cliente={clienteAtivo} />}
-          {secao === 'config' && <Config {...sectionProps} cliente={clienteAtivo} onAtualizar={recarregar} />}
+          {secao === 'compras'     && <Compras {...sectionProps} />}
+          {secao === 'notas'       && <NotasFiscais {...sectionProps} />}
+          {secao === 'banco'       && <Banco {...sectionProps} />}
+          {secao === 'despesas'    && <Despesas {...sectionProps} />}
+          {secao === 'cruzamento'  && <Cruzamento {...sectionProps} />}
+          {secao === 'projecao'    && <Projecao {...sectionProps} cliente={clienteAtivo} />}
+          {secao === 'config'      && <Config {...sectionProps} cliente={clienteAtivo} onAtualizar={recarregar} />}
         </div>
       </main>
     </div>
   )
-}
-
-function btnStyle(variant: 'primary' | 'ghost') {
-  const base: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-    borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none',
-  }
-  if (variant === 'primary') return { ...base, background: 'var(--accent)', color: 'white' }
-  return { ...base, background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }
 }

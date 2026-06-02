@@ -1,24 +1,97 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+@custom-variant dark (&:is(.dark *));
+
+/* ── Design tokens Cúmplice ────────────────────────────────────────────── */
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #22263a;
-  --border: #2e3250;
-  --accent: #6c63ff;
-  --accent2: #a78bfa;
-  --gold: #f59e0b;
-  --green: #10b981;
-  --red: #ef4444;
-  --orange: #f97316;
-  --text: #e2e8f0;
-  --muted: #64748b;
+  --radius: 0.625rem;
+
+  /* shadcn dark theme (aplicado diretamente, sem toggle) */
+  --background:         oklch(0.12 0.015 260);
+  --foreground:         oklch(0.93 0.01 240);
+  --card:               oklch(0.16 0.015 260);
+  --card-foreground:    oklch(0.93 0.01 240);
+  --popover:            oklch(0.16 0.015 260);
+  --popover-foreground: oklch(0.93 0.01 240);
+  --primary:            oklch(0.60 0.20 270);       /* violeta accent */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary:          oklch(0.21 0.018 260);
+  --secondary-foreground: oklch(0.93 0.01 240);
+  --muted:              oklch(0.21 0.018 260);
+  --muted-foreground:   oklch(0.56 0.02 250);
+  --accent:             oklch(0.21 0.018 260);
+  --accent-foreground:  oklch(0.93 0.01 240);
+  --destructive:        oklch(0.60 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border:             oklch(1 0 0 / 10%);
+  --input:              oklch(1 0 0 / 12%);
+  --ring:               oklch(0.60 0.20 270);
+
+  /* sidebar */
+  --sidebar:                  oklch(0.14 0.015 260);
+  --sidebar-foreground:       oklch(0.93 0.01 240);
+  --sidebar-primary:          oklch(0.60 0.20 270);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent:           oklch(0.19 0.018 260);
+  --sidebar-accent-foreground: oklch(0.93 0.01 240);
+  --sidebar-border:           oklch(1 0 0 / 10%);
+  --sidebar-ring:             oklch(0.60 0.20 270);
+
+  /* aliases legados (usados por components existentes) */
+  --bg:       oklch(0.12 0.015 260);
+  --surface:  oklch(0.16 0.015 260);
+  --surface2: oklch(0.19 0.018 260);
+  --text:     oklch(0.93 0.01 240);
+  --muted-legacy: oklch(0.56 0.02 250);
+  --green:   #10b981;
+  --red:     #ef4444;
+  --orange:  #f97316;
+  --gold:    #f59e0b;
+  --yellow:  #eab308;
 }
 
-* { box-sizing: border-box; }
+@theme inline {
+  --font-sans: var(--font-sans);
+  --color-background:         var(--background);
+  --color-foreground:         var(--foreground);
+  --color-card:               var(--card);
+  --color-card-foreground:    var(--card-foreground);
+  --color-popover:            var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary:            var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary:          var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:              var(--muted);
+  --color-muted-foreground:   var(--muted-foreground);
+  --color-accent:             var(--accent);
+  --color-accent-foreground:  var(--accent-foreground);
+  --color-destructive:        var(--destructive);
+  --color-border:             var(--border);
+  --color-input:              var(--input);
+  --color-ring:               var(--ring);
+  --color-sidebar:            var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary:    var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:     var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border:     var(--sidebar-border);
+  --color-sidebar-ring:       var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+}
+
+/* ── Utilitários globais ────────────────────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.3 0 0) transparent;
 }
