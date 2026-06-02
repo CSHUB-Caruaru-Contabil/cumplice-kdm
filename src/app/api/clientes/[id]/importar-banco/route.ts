@@ -45,26 +45,20 @@ export async function POST(
     }
 
     const total_lidos = lancamentos.length
-    const filtrados = lancamentos.filter(l => l.data.startsWith(periodo))
-    const fora_periodo = total_lidos - filtrados.length
 
-    if (filtrados.length === 0) {
+    if (total_lidos === 0) {
       return NextResponse.json({
-        inseridos: 0,
-        total_lidos,
-        fora_periodo,
-        aviso: `Nenhuma transação encontrada para o período ${periodo}. `
-          + `O arquivo contém ${total_lidos} lançamento(s), `
-          + (total_lidos > 0
-            ? `com datas entre ${lancamentos[0]?.data} e ${lancamentos[total_lidos - 1]?.data}.`
-            : 'mas nenhuma pôde ser parseada.'),
+        inseridos: 0, total_lidos: 0,
+        aviso: 'Nenhuma transação pôde ser lida do arquivo.',
       })
     }
 
+    // Cada transação vai para o seu período real (data da transação)
+    // Não filtra por período da UI — o extrato pode conter meses diferentes
     const criados = await prisma.bancoLancamento.createMany({
-      data: filtrados.map(l => ({
+      data: lancamentos.map(l => ({
         cliente_id: clienteId,
-        periodo,
+        periodo: l.data.substring(0, 7),  // ← período da TRANSAÇÃO, não da UI
         data: new Date(l.data),
         descricao: l.descricao,
         categoria: l.categoria || null,
@@ -76,11 +70,18 @@ export async function POST(
       skipDuplicates: true,
     })
 
+    // Conta por período para feedback
+    const porPeriodo: Record<string, number> = {}
+    for (const l of lancamentos) {
+      const p = l.data.substring(0, 7)
+      porPeriodo[p] = (porPeriodo[p] || 0) + 1
+    }
+
     return NextResponse.json({
       inseridos: criados.count,
       total_lidos,
-      fora_periodo,
-      duplicados_ignorados: filtrados.length - criados.count,
+      por_periodo: porPeriodo,
+      duplicados_ignorados: lancamentos.length - criados.count,
     })
   } catch (err) {
     console.error('[importar-banco]', err)

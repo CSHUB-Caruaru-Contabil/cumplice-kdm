@@ -95,6 +95,9 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
       const d = result.duplicados?.length || 0
       const e = result.erros?.length || 0
       let msg = `${n} NF(s) importada(s)`
+      // Avisa se alguma NF foi alocada em período diferente do atual
+      const fora = (result.importados as string[] || []).filter(s => s.includes('→ alocado'))
+      if (fora.length > 0) msg += ` · ${fora.length} alocada(s) no período correto`
       if (d > 0) msg += ` · ${d} duplicada(s)`
       if (e > 0) msg += ` · ${e} erro(s)`
       setToast(n > 0 ? msg : `Erro: ${result.erros?.[0]?.erro || 'Nenhuma NF importada'}`)

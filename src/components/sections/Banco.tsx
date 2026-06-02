@@ -129,9 +129,18 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
         setToast(`Erro: ${result.erro}`)
       } else if (result.inseridos === 0 && result.aviso) {
         setToast(`Erro: ${result.aviso}`)
+      } else if (result.inseridos === 0) {
+        setToast('Erro: Nenhum lançamento importado — verifique o arquivo')
       } else {
+        // Monta mensagem com breakdown por período
         let msg = `${result.inseridos} lançamento(s) importado(s) → ${contaFinal}`
-        if (result.fora_periodo > 0) msg += ` · ${result.fora_periodo} fora do período`
+        if (result.por_periodo) {
+          const periodos = Object.entries(result.por_periodo as Record<string, number>)
+          if (periodos.length > 1) {
+            msg += ` (${periodos.map(([p, n]) => `${p}: ${n}`).join(' · ')})`
+          }
+        }
+        if (result.duplicados_ignorados > 0) msg += ` · ${result.duplicados_ignorados} duplicado(s) ignorado(s)`
         setToast(msg)
         await carregar(); onRecarregar()
       }

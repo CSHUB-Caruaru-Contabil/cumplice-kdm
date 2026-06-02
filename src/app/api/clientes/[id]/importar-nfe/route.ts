@@ -17,8 +17,7 @@ export async function POST(
     const files = formData.getAll('files') as File[]
     const periodo = formData.get('periodo') as string
 
-    if (!periodo) return NextResponse.json({ erro: 'Período obrigatório' }, { status: 400 })
-
+    // periodo da UI é apenas fallback — a NF usa sua data de emissão real
     const importados: string[] = []
     const erros: { arquivo: string; erro: string }[] = []
     const duplicados: string[] = []
@@ -28,6 +27,11 @@ export async function POST(
       const nfe = await parseNFeXML(content)
 
       if (nfe.erro) { erros.push({ arquivo: file.name, erro: nfe.erro }); continue }
+
+      // Deriva período da DATA DA NF, não do período da UI
+      // Ex: NF de 15/04/2026 → periodo = "2026-04"  independente do que está na UI
+      const periodoNF = nfe.data_emissao?.substring(0, 7) || periodo
+      if (!periodoNF) { erros.push({ arquivo: file.name, erro: 'Data de emissão inválida' }); continue }
 
       if (nfe.chave_acesso) {
         const existente = await prisma.notaFiscal.findUnique({
@@ -40,7 +44,8 @@ export async function POST(
       const label = nfe.formato === 'nfse' ? 'NFS-e' : 'NF-e'
       await prisma.notaFiscal.create({
         data: {
-          cliente_id: clienteId, periodo,
+          cliente_id: clienteId,
+          periodo: periodoNF,           // ← período real da NF
           data: new Date(nfe.data_emissao),
           numero: nfe.numero,
           chave_acesso: nfe.chave_acesso || null,
@@ -48,7 +53,8 @@ export async function POST(
           cfop: nfe.cfop, valor: nfe.valor_total, conciliada: false,
         },
       })
-      importados.push(`${label} ${nfe.numero} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)
+      const aviso = periodoNF !== periodo ? ` → alocado em ${periodoNF}` : ''
+      importados.push(`${label} ${nfe.numero}${aviso} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)
     }
 
     return NextResponse.json({ importados, erros, duplicados })
