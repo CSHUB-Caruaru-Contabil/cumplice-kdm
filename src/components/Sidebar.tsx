@@ -10,11 +10,12 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { createClient } from '@/lib/supabase/client'
 import type { Cliente } from '@/lib/supabase/types'
 import type { Section } from '@/app/dashboard/DashboardClient'
-import { PERIODOS_LISTA } from '@/app/dashboard/DashboardClient'
+
 import {
   LayoutDashboard, ShoppingCart, FileText, Landmark, CreditCard,
   ScanSearch, TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, Menu, Building2, Users,
 } from 'lucide-react'
+import MonthPicker from '@/components/MonthPicker'
 
 type Props = {
   clientes: Cliente[]
@@ -207,29 +208,8 @@ function SidebarContent({
       <Separator className="bg-sidebar-border" />
 
       {/* Period selector */}
-      <div className="px-3 py-3">
-        {!collapsed ? (
-          <select
-            value={periodo}
-            onChange={e => onPeriodo(e.target.value)}
-            className="w-full h-8 rounded-md border border-border bg-secondary text-sidebar-foreground text-xs px-2 focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-          >
-            {PERIODOS_LISTA.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger render={
-              <button className="w-full flex justify-center text-muted-foreground hover:text-sidebar-foreground py-1 text-[11px] font-mono" />
-            }>
-              {periodo.substring(5)}
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              {PERIODOS_LISTA.find(p => p.value === periodo)?.label}
-            </TooltipContent>
-          </Tooltip>
-        )}
+      <div className={cn('py-3', collapsed ? 'px-2' : 'px-3')}>
+        <MonthPicker value={periodo} onChange={onPeriodo} collapsed={collapsed} />
       </div>
 
       {/* Logout + toggle */}
