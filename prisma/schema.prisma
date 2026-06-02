@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Cliente {
+  id                    String    @id @default(uuid())
+  razao_social          String
+  cnpj                  String    @unique
+  regime                String    @default("Simples Nacional – Anexo I")
+  setor                 String?
+  responsavel           String?
+  email                 String?
+  telefone              String?
+  banco_principal       String?
+  limite_alerta_imposto Decimal   @default(5.5)
+  ativo                 Boolean   @default(true)
+  created_at            DateTime  @default(now())
+
+  compras          Compra[]
+  notas_fiscais    NotaFiscal[]
+  banco_lancamentos BancoLancamento[]
+  despesas         Despesa[]
+  divergencias     Divergencia[]
+  thresholds       Threshold?
+  usuario_clientes UsuarioCliente[]
+
+  @@map("clientes")
+}
+
+model UsuarioCliente {
+  usuario_id String
+  cliente_id String
+  papel      String  @default("contador")
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+
+  @@id([usuario_id, cliente_id])
+  @@map("usuario_clientes")
+}
+
+model Compra {
+  id               String   @id @default(uuid())
+  cliente_id       String
+  periodo          String
+  data             DateTime @db.Date
+  fornecedor       String
+  cnpj_fornecedor  String?
+  categoria        String?
+  valor            Decimal
+  nf_entrada       String?
+  pagamento        String?
+  created_at       DateTime @default(now())
+
+  cliente     Cliente       @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  divergencia Divergencia[]
+
+  @@map("compras")
+}
+
+model NotaFiscal {
+  id                  String    @id @default(uuid())
+  cliente_id          String
+  periodo             String
+  data                DateTime  @db.Date
+  numero              String
+  chave_acesso        String?   @unique
+  cliente_nf          String?
+  cfop                String?
+  valor               Decimal
+  recebimento         String?
+  data_recebimento    DateTime? @db.Date
+  conciliada          Boolean   @default(false)
+  banco_lancamento_id String?
+  created_at          DateTime  @default(now())
+
+  cliente          Cliente           @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  banco_lancamento BancoLancamento[] @relation("NotaConciliada")
+  divergencia      Divergencia[]
+
+  @@map("notas_fiscais")
+}
+
+model BancoLancamento {
+  id             String   @id @default(uuid())
+  cliente_id     String
+  periodo        String
+  data           DateTime @db.Date
+  descricao      String
+  categoria      String?
+  tipo           String   // entrada | saida
+  valor          Decimal
+  nf_vinculada   String?
+  nota_fiscal_id String?
+  status         String   @default("pendente") // ok | pendente | sem_nf | parcial
+  conta          String?
+  created_at     DateTime @default(now())
+
+  cliente      Cliente     @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  nota_fiscal  NotaFiscal? @relation("NotaConciliada", fields: [nota_fiscal_id], references: [id])
+  divergencia  Divergencia[]
+
+  @@map("banco_lancamentos")
+}
+
+model Despesa {
+  id         String   @id @default(uuid())
+  cliente_id String
+  periodo    String
+  data       DateTime @db.Date
+  descricao  String
+  categoria  String?
+  valor      Decimal
+  documento  String?
+  pago_banco Boolean  @default(true)
+  dedutivel  String   @default("sim") // sim | parcial | nao
+  created_at DateTime @default(now())
+
+  cliente     Cliente       @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  divergencia Divergencia[]
+
+  @@map("despesas")
+}
+
+model Divergencia {
+  id                  String   @id @default(uuid())
+  cliente_id          String
+  periodo             String
+  tipo                String   // receita_nao_declarada | compra_sem_nf | despesa_sem_comprovante
+  severidade          String   // alto | medio | baixo
+  valor               Decimal?
+  descricao           String?
+  banco_lancamento_id String?
+  nota_fiscal_id      String?
+  compra_id           String?
+  despesa_id          String?
+  resolvida           Boolean  @default(false)
+  observacao          String?
+  created_at          DateTime @default(now())
+
+  cliente          Cliente          @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  banco_lancamento BancoLancamento? @relation(fields: [banco_lancamento_id], references: [id])
+  nota_fiscal      NotaFiscal?      @relation(fields: [nota_fiscal_id], references: [id])
+  compra           Compra?          @relation(fields: [compra_id], references: [id])
+  despesa          Despesa?         @relation(fields: [despesa_id], references: [id])
+
+  @@map("divergencias")
+}
+
+model Threshold {
+  cliente_id            String  @id
+  divergencia_banco_nf  Decimal @default(500)
+  compra_sem_nf         Decimal @default(200)
+  despesa_sem_doc       Decimal @default(300)
+  sublimite_simples_pct Decimal @default(80)
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+
+  @@map("thresholds")
+}

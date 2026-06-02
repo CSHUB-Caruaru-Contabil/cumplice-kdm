@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# Scripts de desenvolvimento (contêm lógica de seed, não para produção)
+/scripts/*.ts
+
+# Prisma config local
+prisma.config.ts

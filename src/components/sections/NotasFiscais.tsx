@@ -1,0 +1,121 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { NotaFiscal } from '@/lib/supabase/types'
+import { Badge, Btn, Card, CardTitle, Input, Select, Table, Td, Toast, Tr, UploadZone, brl } from '@/components/ui'
+
+type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
+
+const hoje = new Date().toISOString().substring(0, 10)
+
+export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar }: Props) {
+  const supabase = createClient()
+  const [notas, setNotas] = useState<NotaFiscal[]>([])
+  const [toast, setToast] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [importando, setImportando] = useState(false)
+
+  const [data, setData] = useState(hoje)
+  const [numero, setNumero] = useState('')
+  const [clienteNF, setClienteNF] = useState('')
+  const [valor, setValor] = useState('')
+  const [cfop, setCFOP] = useState('5102')
+  const [recebimento, setRecebimento] = useState('À Vista')
+  const [dataRec, setDataRec] = useState(hoje)
+
+  const carregar = useCallback(async () => {
+    const { data: rows } = await supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
+    setNotas((rows || []) as NotaFiscal[])
+  }, [clienteId, periodo])
+
+  useEffect(() => { carregar() }, [carregar, refresh])
+
+  async function adicionar() {
+    if (!numero || !valor) return
+    setSalvando(true)
+    await supabase.from('notas_fiscais').insert({
+      cliente_id: clienteId, periodo, data, numero,
+      cliente_nf: clienteNF || 'Consumidor Final',
+      valor: parseFloat(valor), cfop, recebimento,
+      data_recebimento: dataRec, conciliada: false,
+    })
+    setNumero(''); setValor(''); setClienteNF('')
+    await carregar()
+    onRecarregar()
+    setToast('NF adicionada!')
+    setSalvando(false)
+  }
+
+  async function importarXML(files: File[]) {
+    setImportando(true)
+    const formData = new FormData()
+    files.forEach(f => formData.append('files', f))
+    formData.append('periodo', periodo)
+
+    const res = await fetch(`/api/clientes/${clienteId}/importar-nfe`, { method: 'POST', body: formData })
+    const result = await res.json()
+    await carregar()
+    onRecarregar()
+    setToast(`${result.importados?.length || 0} NF(s) importada(s)`)
+    setImportando(false)
+  }
+
+  const total = notas.reduce((s, n) => s + n.valor, 0)
+
+  return (
+    <div>
+      <Card style={{ marginBottom: 18 }}>
+        <CardTitle>Registrar NF Emitida</CardTitle>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <Input label="Data de Emissão" type="date" value={data} onChange={e => setData(e.target.value)} />
+          <Input label="Nº da NF" value={numero} onChange={e => setNumero(e.target.value)} placeholder="000001" />
+          <Input label="Cliente / Consumidor" value={clienteNF} onChange={e => setClienteNF(e.target.value)} placeholder="Nome ou Consumidor Final" />
+          <Input label="Valor Total (R$)" type="number" value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" />
+          <Select label="CFOP" value={cfop} onChange={e => setCFOP(e.target.value)}>
+            <option value="5102">5102 – Venda de mercadoria</option>
+            <option value="5405">5405 – Venda substituição tributária</option>
+            <option value="5949">5949 – Outra saída</option>
+          </Select>
+          <Select label="Forma de Recebimento" value={recebimento} onChange={e => setRecebimento(e.target.value)}>
+            <option>À Vista</option>
+            <option>Cartão Débito</option>
+            <option>Cartão Crédito</option>
+            <option>Pix</option>
+            <option>Boleto</option>
+          </Select>
+          <Input label="Recebimento Previsto" type="date" value={dataRec} onChange={e => setDataRec(e.target.value)} />
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <Btn onClick={adicionar} disabled={salvando || !numero || !valor} style={{ width: '100%', justifyContent: 'center' }}>
+              + Adicionar
+            </Btn>
+          </div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <UploadZone icon="🧾" label="Importar XMLs de NF-e Emitidas" sub={importando ? 'Importando...' : 'Exportado do SEFAZ ou ERP — XML'}
+            onFiles={importarXML} accept=".xml" />
+        </div>
+      </Card>
+
+      <Card>
+        <CardTitle sub={`Total: ${brl(total)} · ${notas.length} notas`}>NFs Emitidas no Mês</CardTitle>
+        <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP', 'Valor', 'Recebimento', 'Banco']}>
+          {notas.map(n => (
+            <Tr key={n.id}>
+              <Td>{n.data}</Td>
+              <Td mono>{n.numero}</Td>
+              <Td>{n.cliente_nf}</Td>
+              <Td mono>{n.cfop}</Td>
+              <Td>{brl(n.valor)}</Td>
+              <Td>{n.recebimento}</Td>
+              <Td><Badge variant={n.conciliada ? 'ok' : 'warn'}>{n.conciliada ? '✓ Conciliado' : 'Pendente'}</Badge></Td>
+            </Tr>
+          ))}
+        </Table>
+        {notas.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>Nenhuma NF registrada</div>}
+      </Card>
+
+      {toast && <Toast msg={toast} onHide={() => setToast('')} />}
+    </div>
+  )
+}
