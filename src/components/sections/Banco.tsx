@@ -356,29 +356,75 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
           {contaFiltro ? `Movimentações — ${contaFiltro}` : 'Movimentações Bancárias'}
         </CardTitle>
 
-        <Table headers={['Data', 'Descrição', 'Categoria', 'Tipo', 'Valor', 'Conta', 'NF Vinc.', 'Status', '']}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[100px]">Data</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Descrição</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[120px]">Categoria</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[80px]">Tipo</th>
+                <th className="text-right py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[110px]">Valor</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[100px]">Conta</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[110px]">Status</th>
+                <th className="w-[60px]" />
+              </tr>
+            </thead>
+            <tbody>
           {visiveis.map(b => (
-            <Tr key={b.id}>
-              <Td>{fmtData(b.data)}</Td>
-              <Td>{b.descricao}</Td>
-              <Td>{b.categoria}</Td>
-              <Td>
-                <span className={b.tipo === 'entrada' ? 'text-green-500 font-bold' : 'text-red-400 font-bold'}>
-                  {b.tipo === 'entrada' ? '↑ Entrada' : '↓ Saída'}
+            <tr key={b.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
+              {/* Data */}
+              <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtData(b.data)}</td>
+
+              {/* Descrição — truncada com tooltip nativo */}
+              <td className="py-2.5 px-3 max-w-[280px]">
+                <span className="block truncate text-sm text-foreground" title={b.descricao}>
+                  {b.descricao}
                 </span>
-              </Td>
-              <Td><span className="font-semibold">{brl(b.valor)}</span></Td>
-              <Td>
+                {b.categoria && (
+                  <span className="text-[11px] text-muted-foreground">{b.categoria}</span>
+                )}
+              </td>
+
+              {/* Categoria — oculta (já no sub do descricao) */}
+              <td className="hidden" />
+
+              {/* Tipo */}
+              <td className="py-2.5 px-3 whitespace-nowrap">
+                <span className={`inline-flex items-center gap-1 text-xs font-bold ${b.tipo === 'entrada' ? 'text-green-500' : 'text-red-400'}`}>
+                  {b.tipo === 'entrada' ? '↑' : '↓'}
+                  {b.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                </span>
+              </td>
+
+              {/* Valor */}
+              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                <span className={`font-semibold text-sm ${b.tipo === 'entrada' ? 'text-green-500' : 'text-red-400'}`}>
+                  {brl(b.valor)}
+                </span>
+              </td>
+
+              {/* Conta */}
+              <td className="py-2.5 px-3 whitespace-nowrap">
                 {b.conta
-                  ? <span className="text-xs bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-foreground">{b.conta}</span>
+                  ? <span className="text-xs bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-foreground truncate max-w-[90px] inline-block" title={b.conta}>{b.conta}</span>
                   : <span className="text-muted-foreground text-xs">—</span>}
-              </Td>
-              <Td mono>{b.nf_vinculada || <span className="text-muted-foreground">—</span>}</Td>
-              <Td><StatusBancario status={b.status} /></Td>
-              <Td><RowActions onEdit={() => setEditando({ ...b })} onDelete={() => setExcluindo(b.id)} /></Td>
-            </Tr>
+              </td>
+
+              {/* Status */}
+              <td className="py-2.5 px-3 whitespace-nowrap">
+                <StatusBancario status={b.status} />
+              </td>
+
+              {/* Ações */}
+              <td className="py-2.5 px-3">
+                <RowActions onEdit={() => setEditando({ ...b })} onDelete={() => setExcluindo(b.id)} />
+              </td>
+            </tr>
           ))}
-        </Table>
+            </tbody>
+          </table>
+        </div>
         {visiveis.length === 0 && (
           <p className="text-center py-8 text-muted-foreground text-sm">
             {contaFiltro ? `Nenhum lançamento para "${contaFiltro}"` : 'Nenhum lançamento registrado'}
@@ -437,7 +483,7 @@ function StatusBancario({ status }: { status: string | undefined }) {
   }
   const c = cfg[status as keyof typeof cfg] ?? cfg.pendente
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${c.bg} ${c.text}`}>
+    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${c.bg} ${c.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {c.label}
     </span>
