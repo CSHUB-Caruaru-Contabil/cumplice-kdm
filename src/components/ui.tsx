@@ -235,10 +235,11 @@ export function Td({ children, mono }: { children: React.ReactNode; mono?: boole
 }
 
 export function Toast({ msg, onHide }: { msg: string; onHide: () => void }) {
+  const isError = msg.toLowerCase().startsWith('erro')
   React.useEffect(() => {
-    const t = setTimeout(onHide, 3000)
+    const t = setTimeout(onHide, isError ? 5000 : 3000)
     return () => clearTimeout(t)
-  }, [onHide])
+  }, [onHide, isError])
 
   return (
     <div style={{
@@ -246,8 +247,9 @@ export function Toast({ msg, onHide }: { msg: string; onHide: () => void }) {
       border: '1px solid var(--green)', color: 'var(--text)', padding: '12px 18px',
       borderRadius: 10, fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center',
       gap: 8, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      borderColor: isError ? 'var(--red)' : 'var(--green)',
     }}>
-      ✅ {msg}
+      {isError ? '❌' : '✅'} {msg}
     </div>
   )
 }

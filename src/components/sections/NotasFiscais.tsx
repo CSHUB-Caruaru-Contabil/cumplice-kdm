@@ -34,12 +34,17 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
   async function adicionar() {
     if (!numero || !valor) return
     setSalvando(true)
-    await supabase.from('notas_fiscais').insert({
+    const { error } = await supabase.from('notas_fiscais').insert({
       cliente_id: clienteId, periodo, data, numero,
       cliente_nf: clienteNF || 'Consumidor Final',
       valor: parseFloat(valor), cfop, recebimento,
       data_recebimento: dataRec, conciliada: false,
     })
+    if (error) {
+      setToast(`Erro ao salvar: ${error.message}`)
+      setSalvando(false)
+      return
+    }
     setNumero(''); setValor(''); setClienteNF('')
     await carregar()
     onRecarregar()

@@ -34,12 +34,17 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
   async function adicionar() {
     if (!desc || !valor) return
     setSalvando(true)
-    await supabase.from('banco_lancamentos').insert({
+    const { error } = await supabase.from('banco_lancamentos').insert({
       cliente_id: clienteId, periodo, data, descricao: desc,
       categoria, tipo, valor: parseFloat(valor),
       nf_vinculada: nfVinc || null, conta,
       status: nfVinc ? 'ok' : (tipo === 'entrada' ? 'pendente' : 'ok'),
     })
+    if (error) {
+      setToast(`Erro ao salvar: ${error.message}`)
+      setSalvando(false)
+      return
+    }
     setDesc(''); setValor(''); setNFVinc('')
     await carregar()
     onRecarregar()

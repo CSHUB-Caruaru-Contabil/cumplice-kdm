@@ -33,11 +33,16 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
   async function adicionar() {
     if (!desc || !valor) return
     setSalvando(true)
-    await supabase.from('despesas').insert({
+    const { error } = await supabase.from('despesas').insert({
       cliente_id: clienteId, periodo, data, descricao: desc,
       valor: parseFloat(valor), categoria, documento: doc || null,
       pago_banco: pagoBanco, dedutivel,
     })
+    if (error) {
+      setToast(`Erro ao salvar: ${error.message}`)
+      setSalvando(false)
+      return
+    }
     setDesc(''); setValor(''); setDoc('')
     await carregar()
     onRecarregar()

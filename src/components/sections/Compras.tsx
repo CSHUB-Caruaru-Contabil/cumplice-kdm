@@ -36,11 +36,16 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
   async function adicionar() {
     if (!fornecedor || !valor) return
     setSalvando(true)
-    await supabase.from('compras').insert({
+    const { error } = await supabase.from('compras').insert({
       cliente_id: clienteId, periodo, data,
       fornecedor, valor: parseFloat(valor), nf_entrada: nf || null,
       categoria, pagamento, cnpj_fornecedor: cnpjFornecedor || null,
     })
+    if (error) {
+      setToast(`Erro ao salvar: ${error.message}`)
+      setSalvando(false)
+      return
+    }
     setFornecedor(''); setValor(''); setNF(''); setCNPJ('')
     await carregar()
     onRecarregar()
