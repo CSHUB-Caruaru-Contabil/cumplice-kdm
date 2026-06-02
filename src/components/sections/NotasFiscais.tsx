@@ -77,8 +77,28 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
     formData.append('periodo', periodo)
     const res = await fetch(`/api/clientes/${clienteId}/importar-nfe`, { method: 'POST', body: formData })
     const result = await res.json()
-    await carregar(); onRecarregar()
-    setToast(`${result.importados?.length || 0} NF(s) importada(s)`)
+
+    // Recarrega direto do banco — sem depender de closure
+    const { data: fresco } = await supabase
+      .from('notas_fiscais')
+      .select('*')
+      .eq('cliente_id', clienteId)
+      .eq('periodo', periodo)
+      .order('data', { ascending: false })
+    setNotas((fresco || []) as typeof notas)
+    onRecarregar()
+
+    if (result.erro) {
+      setToast(`Erro: ${result.erro}`)
+    } else {
+      const n = result.importados?.length || 0
+      const d = result.duplicados?.length || 0
+      const e = result.erros?.length || 0
+      let msg = `${n} NF(s) importada(s)`
+      if (d > 0) msg += ` · ${d} duplicada(s)`
+      if (e > 0) msg += ` · ${e} erro(s)`
+      setToast(n > 0 ? msg : `Erro: ${result.erros?.[0]?.erro || 'Nenhuma NF importada'}`)
+    }
     setImportando(false)
   }
 

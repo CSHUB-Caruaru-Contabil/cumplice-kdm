@@ -74,17 +74,66 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
   async function importarXML(files: File[]) {
     setImportando(true)
     const { sucesso, erros } = await parseMultiplosXML(files)
+
+    let inseridos = 0
+    const errosInsert: string[] = []
+    const avisos: string[] = []
+
     for (const nfe of sucesso) {
-      if (nfe.tipo !== 'entrada') continue
-      await supabase.from('compras').insert({
-        cliente_id: clienteId, periodo, data: nfe.data_emissao,
-        fornecedor: nfe.razao_emitente, cnpj_fornecedor: nfe.cnpj_emitente,
-        valor: nfe.valor_total, nf_entrada: nfe.numero,
-        categoria: 'Mercadoria para Revenda', pagamento: 'Importado XML',
+      // NFS-e são notas de serviço — pertencem a Despesas, não Compras
+      if (nfe.formato === 'nfse') {
+        avisos.push(`NFS-e ${nfe.numero || 'sem número'} é nota de serviço — registre em Despesas`)
+        continue
+      }
+      if (nfe.tipo !== 'entrada') {
+        avisos.push(`NF ${nfe.numero} é saída — ignorada`)
+        continue
+      }
+      if (!nfe.data_emissao) {
+        errosInsert.push(`NF ${nfe.numero}: data de emissão inválida`)
+        continue
+      }
+
+      const { error } = await supabase.from('compras').insert({
+        cliente_id: clienteId,
+        periodo,
+        data: nfe.data_emissao,
+        fornecedor: nfe.razao_emitente || 'Fornecedor XML',
+        cnpj_fornecedor: nfe.cnpj_emitente || null,
+        valor: nfe.valor_total,
+        nf_entrada: nfe.numero,
+        categoria: 'Mercadoria para Revenda',
+        pagamento: 'Importado XML',
       })
+
+      if (error) {
+        errosInsert.push(`NF ${nfe.numero}: ${error.message}`)
+      } else {
+        inseridos++
+      }
     }
-    await carregar(); onRecarregar()
-    setToast(`${sucesso.length} NF(s) importada(s)${erros.length ? ` · ${erros.length} erro(s)` : ''}`)
+
+    // Recarrega diretamente do banco — sem depender de closure
+    const { data: fresco } = await supabase
+      .from('compras')
+      .select('*')
+      .eq('cliente_id', clienteId)
+      .eq('periodo', periodo)
+      .order('data', { ascending: false })
+
+    setCompras((fresco || []) as typeof compras)
+    onRecarregar()
+
+    // Feedback detalhado
+    if (inseridos > 0) {
+      setToast(`${inseridos} compra(s) importada(s)!`)
+    }
+    const todoErros = [...erros.map(e => e.erro), ...errosInsert]
+    if (todoErros.length > 0) setToast(`Erro: ${todoErros[0]}`)
+    if (inseridos === 0 && todoErros.length === 0 && avisos.length > 0) {
+      setToast(`Erro: ${avisos[0]}`)
+    }
+
     setImportando(false)
   }
 
