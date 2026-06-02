@@ -16,6 +16,7 @@ import Config from '@/components/sections/Config'
 import Clientes from '@/components/sections/Clientes'
 import Usuarios from '@/components/sections/Usuarios'
 import { RefreshCw, Building2, ArrowRight } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export type Section =
   | 'visao-geral' | 'compras' | 'notas' | 'banco'
@@ -111,10 +112,13 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
               {subtitulo}{clienteAtivo ? ` · ${clienteAtivo.razao_social}` : ''}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={recarregar} className="gap-2 text-xs">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="outline" size="sm" onClick={recarregar} className="gap-2 text-xs">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Atualizar
+            </Button>
+          </div>
         </header>
 
         {/* Content */}
