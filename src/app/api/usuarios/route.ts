@@ -8,34 +8,31 @@ async function getAuthUser() {
   return user
 }
 
-// GET /api/usuarios
+// GET /api/usuarios — retorna TODOS os usuários do sistema
 export async function GET() {
   const authUser = await getAuthUser()
   if (!authUser) return NextResponse.json({ erro: 'Não autenticado' }, { status: 401 })
 
-  const vinculos = await prisma.usuarioCliente.findMany({
-    where: { usuario_id: authUser.id },
-    select: { cliente_id: true },
-  })
-  const clienteIds = vinculos.map(v => v.cliente_id)
-
-  const uc = await prisma.usuarioCliente.findMany({
-    where: { cliente_id: { in: clienteIds } },
-  })
-
-  const usuarioIds = [...new Set(uc.map(u => u.usuario_id))]
-
+  // Todos os usuários (não filtra por cliente — acesso global)
   const usuarios = await prisma.$queryRaw<{
     id: string; email: string; created_at: Date; last_sign_in_at: Date | null
   }[]>`
     SELECT id, email, created_at, last_sign_in_at
     FROM auth.users
-    WHERE id = ANY(${usuarioIds}::uuid[])
     ORDER BY email
   `
 
+  // Vínculos para mostrar papel (contador/admin/dono)
+  const uc = await prisma.usuarioCliente.findMany({
+    distinct: ['usuario_id'],
+    orderBy: { usuario_id: 'asc' },
+  })
+
   return NextResponse.json(
-    usuarios.map(u => ({ ...u, vinculos: uc.filter(v => v.usuario_id === u.id) }))
+    usuarios.map(u => ({
+      ...u,
+      vinculos: uc.filter(v => v.usuario_id === u.id),
+    }))
   )
 }
 

@@ -44,22 +44,14 @@ export default function Usuarios({ onRecarregar }: Props) {
     const { data: { user } } = await supabase.auth.getUser()
     setEuId(user?.id || null)
 
+    // Busca todos os usuários + todos os clientes em paralelo
     const [resUsuarios, resClientes] = await Promise.all([
       fetch('/api/usuarios'),
-      fetch('/api/clientes-lista'),
+      supabase.from('clientes').select('*').eq('ativo', true).order('razao_social'),
     ])
 
     if (resUsuarios.ok) setUsuarios(await resUsuarios.json())
-
-    // Busca clientes diretamente pelo Supabase client
-    if (user) {
-      const { data: uc } = await supabase.from('usuario_clientes').select('cliente_id').eq('usuario_id', user.id)
-      const ids = (uc || []).map(r => r.cliente_id)
-      if (ids.length) {
-        const { data: cls } = await supabase.from('clientes').select('*').in('id', ids).eq('ativo', true).order('razao_social')
-        setClientes((cls || []) as Cliente[])
-      }
-    }
+    setClientes((resClientes.data || []) as Cliente[])
 
     setCarregando(false)
   }, [])
