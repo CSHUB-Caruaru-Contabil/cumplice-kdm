@@ -17,15 +17,19 @@ export async function POST(
   if (!guard.ok) return guard.response
 
   try {
-    let body: { files: { nome: string; conteudo: string }[]; periodo: string }
+    let rawBody: unknown
     try {
-      body = await request.json() as typeof body
+      rawBody = await request.json()
     } catch (jsonErr) {
       console.error('[importar-nfe] falha ao parsear JSON do body:', jsonErr)
       return NextResponse.json({ erro: 'Corpo da requisição inválido — verifique o tamanho dos arquivos' }, { status: 400 })
     }
 
-    const { files, periodo } = body!
+    if (!rawBody || typeof rawBody !== 'object') {
+      return NextResponse.json({ erro: 'Body inválido ou vazio' }, { status: 400 })
+    }
+
+    const { files, periodo } = rawBody as { files: { nome: string; conteudo: string }[]; periodo: string }
 
     if (!periodo) return NextResponse.json({ erro: 'Período obrigatório' }, { status: 400 })
     if (!files || !Array.isArray(files) || files.length === 0) {
@@ -173,7 +177,8 @@ export async function POST(
 
     return NextResponse.json({ importados, erros, duplicados, cancelamentos })
   } catch (err) {
-    console.error('[importar-nfe]', err)
-    return NextResponse.json({ erro: 'Erro interno' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[importar-nfe] erro externo:', msg, err)
+    return NextResponse.json({ erro: `Erro interno: ${msg}` }, { status: 500 })
   }
 }
