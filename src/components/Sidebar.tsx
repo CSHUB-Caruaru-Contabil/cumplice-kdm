@@ -13,7 +13,7 @@ import type { Section } from '@/app/dashboard/DashboardClient'
 
 import {
   LayoutDashboard, ShoppingCart, FileText, Landmark, CreditCard,
-  ScanSearch, TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, Menu, Building2, Users, Wrench,
+  ScanSearch, TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, Menu, Building2, Users, Wrench, Search,
 } from 'lucide-react'
 import MonthPicker from '@/components/MonthPicker'
 
@@ -48,6 +48,7 @@ const NAV_ITEMS: { section: string; items: NavItem[] }[] = [
     items: [
       { id: 'cruzamento', icon: ScanSearch, label: 'Cruzamento', badge: '!' },
       { id: 'projecao',   icon: TrendingUp, label: 'Projeção Tributária' },
+      { id: 'busca',      icon: Search,     label: 'Buscar Lançamentos' },
     ],
   },
   {

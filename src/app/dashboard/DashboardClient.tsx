@@ -17,12 +17,13 @@ import Config from '@/components/sections/Config'
 import Clientes from '@/components/sections/Clientes'
 import Usuarios from '@/components/sections/Usuarios'
 import Ferramentas from '@/components/sections/Ferramentas'
+import BuscaLancamentos from '@/components/sections/BuscaLancamentos'
 import { RefreshCw, Building2, ArrowRight } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export type Section =
   | 'visao-geral' | 'compras' | 'notas' | 'banco'
-  | 'despesas' | 'cruzamento' | 'projecao' | 'config' | 'clientes' | 'usuarios' | 'ferramentas'
+  | 'despesas' | 'cruzamento' | 'projecao' | 'config' | 'clientes' | 'usuarios' | 'ferramentas' | 'busca'
 
 const SECTION_TITLES: Record<Section, [string, string]> = {
   'visao-geral': ['Visão Geral', 'Painel de alertas e KPIs do mês'],
@@ -36,6 +37,7 @@ const SECTION_TITLES: Record<Section, [string, string]> = {
   'clientes':    ['Gerenciar Empresas', 'Criar, editar e desativar clientes'],
   'usuarios':    ['Gerenciar Usuários', 'Criar, editar e remover acessos'],
   'ferramentas': ['Ferramentas', 'Utilitários de manutenção e limpeza de dados'],
+  'busca':       ['Buscar Lançamentos', 'Busca e gestão de compras e notas fiscais'],
 }
 
 // Gera lista de períodos: mês atual + 11 meses anteriores
@@ -133,6 +135,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
           )}
           {secao === 'usuarios'    && <Usuarios {...sectionProps} />}
           {secao === 'ferramentas' && <Ferramentas {...sectionProps} />}
+          {secao === 'busca'       && <BuscaLancamentos {...sectionProps} />}
 
           {/* Seções que precisam de cliente */}
           {precisaCliente && !clienteAtivo && (
