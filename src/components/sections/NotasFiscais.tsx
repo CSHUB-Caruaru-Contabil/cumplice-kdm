@@ -129,6 +129,24 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
     setImportando(false)
   }
 
+  // ── Relatório de notas faltantes (gaps na sequência numérica) ─────────────
+  const [mostrarFaltantes, setMostrarFaltantes] = useState(false)
+  const notasFaltantes = (() => {
+    const nums = notas
+      .map(n => parseInt(n.numero || '0', 10))
+      .filter(n => n > 0)
+      .sort((a, b) => a - b)
+    if (nums.length < 2) return []
+    const faltantes: number[] = []
+    for (let i = 0; i < nums.length - 1; i++) {
+      for (let j = nums[i] + 1; j < nums[i + 1]; j++) {
+        faltantes.push(j)
+        if (faltantes.length > 500) return faltantes // segurança
+      }
+    }
+    return faltantes
+  })()
+
   const [busca, setBusca] = useState('')
   const total = notas.reduce((s, n) => s + n.valor, 0)
   const visiveis = busca.trim()
@@ -171,7 +189,54 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
       </Card>
 
       <Card>
-        <CardTitle sub={`Total: ${brl(total)} · ${notas.length} notas`}>NFs Emitidas no Mês</CardTitle>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <CardTitle sub={`Total: ${brl(total)} · ${notas.length} notas`}>NFs Emitidas no Mês</CardTitle>
+          {notasFaltantes.length > 0 && (
+            <Btn variant="ghost" onClick={() => setMostrarFaltantes(m => !m)}
+              style={{ fontSize: 11, gap: 6, color: 'var(--color-yellow-400)' }}>
+              ⚠️ {notasFaltantes.length} NF(s) faltando
+              <span style={{ fontSize: 10 }}>{mostrarFaltantes ? '▲' : '▼'}</span>
+            </Btn>
+          )}
+        </div>
+
+        {mostrarFaltantes && notasFaltantes.length > 0 && (
+          <div style={{
+            marginBottom: 14, padding: '10px 14px', borderRadius: 8,
+            background: 'var(--color-secondary)', border: '1px solid var(--color-yellow-400)',
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-yellow-400)', marginBottom: 8 }}>
+              ⚠️ Números ausentes na sequência do período (NFs não importadas ou canceladas):
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {/* Agrupa em faixas consecutivas */}
+              {(() => {
+                const ranges: string[] = []
+                let start = notasFaltantes[0], prev = notasFaltantes[0]
+                for (let i = 1; i <= notasFaltantes.length; i++) {
+                  const cur = notasFaltantes[i]
+                  if (cur !== prev + 1) {
+                    ranges.push(start === prev ? `${start}` : `${start}–${prev}`)
+                    start = cur; prev = cur
+                  } else { prev = cur }
+                }
+                return ranges.map((r, i) => (
+                  <span key={i} style={{
+                    fontSize: 11, fontFamily: 'monospace', padding: '2px 8px',
+                    background: 'var(--color-card)', borderRadius: 4,
+                    border: '1px solid var(--color-border)', color: 'var(--color-yellow-400)',
+                  }}>{r}</span>
+                ))
+              })()}
+            </div>
+            {notasFaltantes.length >= 500 && (
+              <p style={{ fontSize: 10, color: 'var(--color-muted-foreground)', marginTop: 6 }}>
+                Exibindo os primeiros 500 números faltantes.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="relative mb-3">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por número da NF ou cliente..."

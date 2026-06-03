@@ -101,7 +101,12 @@ function parseNFe(result: Record<string, unknown>): NFeParsed {
     serie: getText(ide.serie),
     data_emissao: getText(ide.dhEmi || ide.dEmi).substring(0, 10),
     cfop: itens[0]?.cfop || '',
-    valor_total: getNum((total as Record<string, unknown>).vNF || (total as Record<string, unknown>).vProd),
+    // vNFTot inclui IBS+CBS (reforma tributária 2026) — preferir quando disponível
+    valor_total: getNum(
+      (inf.total as Record<string, unknown>)?.vNFTot ||
+      (total as Record<string, unknown>).vNF ||
+      (total as Record<string, unknown>).vProd
+    ),
     cnpj_emitente: getText(emit.CNPJ).replace(/\D/g, ''),
     razao_emitente: getText(emit.xNome || emit.xFant),
     cnpj_destinatario: getText(dest.CNPJ).replace(/\D/g, '') || undefined,
