@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Upload, Plus, Landmark } from 'lucide-react'
 import ContasBancarias from '@/components/ContasBancarias'
 import { checkPeriodoAberto } from '@/lib/periodo-check-client'
+import UploadComprovante from '@/components/UploadComprovante'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -386,6 +387,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
                 <th className="text-right py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[110px]">Valor</th>
                 <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[100px]">Conta</th>
                 <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[110px]">Status</th>
+                <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[90px]">Comprovante</th>
                 <th className="w-[60px]" />
               </tr>
             </thead>
@@ -433,6 +435,17 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
               {/* Status */}
               <td className="py-2.5 px-3 whitespace-nowrap">
                 <StatusBancario status={b.status} />
+              </td>
+
+              {/* Comprovante */}
+              <td className="py-2.5 px-3">
+                <UploadComprovante
+                  tabela="banco_lancamentos"
+                  registroId={b.id}
+                  clienteId={clienteId}
+                  urlAtual={(b as any).comprovante_url}
+                  onAtualizado={url => setLancamentos(prev => prev.map(x => x.id === b.id ? { ...x, comprovante_url: url } as any : x))}
+                />
               </td>
 
               {/* Ações */}

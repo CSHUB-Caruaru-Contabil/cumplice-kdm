@@ -8,6 +8,7 @@ import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
   RowActions, Select, Table, Td, Toast, Tr, brl, fmtData,
 } from '@/components/ui'
+import UploadComprovante from '@/components/UploadComprovante'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -114,16 +115,24 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
         <CardTitle sub={`Total: ${brl(total)}${semDoc > 0 ? ` · ${brl(semDoc)} sem comprovante ⚠` : ''}`}>
           Despesas do Mês
         </CardTitle>
-        <Table headers={['Data', 'Descrição', 'Categoria', 'Valor', 'Documento', 'No Banco', 'Status', '']}>
+        <Table headers={['Data', 'Descrição', 'Categoria', 'Valor', 'Documento', 'Comprovante', 'Status', '']}>
           {despesas.map(d => (
             <Tr key={d.id}>
               <Td>{fmtData(d.data)}</Td>
               <Td>{d.descricao}</Td>
               <Td>{d.categoria}</Td>
               <Td>{brl(d.valor)}</Td>
-              <Td mono>{d.documento || <span className="text-red-400">Sem doc ⚠</span>}</Td>
-              <Td>{d.pago_banco ? '✓ Sim' : 'Não'}</Td>
-              <Td><Badge variant={d.status === 'ok' ? 'ok' : 'err'}>{d.status === 'ok' ? '✓ OK' : '⚠ Sem doc'}</Badge></Td>
+              <Td mono>{d.documento || <span className="text-muted-foreground text-xs">—</span>}</Td>
+              <Td>
+                <UploadComprovante
+                  tabela="despesas"
+                  registroId={d.id}
+                  clienteId={clienteId}
+                  urlAtual={(d as any).comprovante_url}
+                  onAtualizado={url => setDespesas(prev => prev.map(x => x.id === d.id ? { ...x, comprovante_url: url } as any : x))}
+                />
+              </Td>
+              <Td><Badge variant={d.status === 'ok' || (d as any).comprovante_url ? 'ok' : 'err'}>{(d as any).comprovante_url ? '📎 Anexado' : d.status === 'ok' ? '✓ OK' : '⚠ Sem doc'}</Badge></Td>
               <Td><RowActions onEdit={() => setEditando({ ...d })} onDelete={() => setExcluindo(d.id)} /></Td>
             </Tr>
           ))}

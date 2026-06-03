@@ -98,11 +98,12 @@ model BancoLancamento {
   categoria      String?
   tipo           String   // entrada | saida
   valor          Decimal
-  nf_vinculada   String?
-  nota_fiscal_id String?
-  status         String   @default("pendente") // ok | pendente | sem_nf | parcial
-  conta          String?
-  created_at     DateTime @default(now())
+  nf_vinculada     String?
+  nota_fiscal_id   String?
+  status           String   @default("pendente") // ok | pendente | sem_nf | parcial
+  conta            String?
+  comprovante_url  String?  // URL do comprovante no Supabase Storage
+  created_at       DateTime @default(now())
 
   cliente      Cliente     @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
   nota_fiscal  NotaFiscal? @relation("NotaConciliada", fields: [nota_fiscal_id], references: [id])
@@ -119,7 +120,8 @@ model Despesa {
   descricao  String
   categoria  String?
   valor      Decimal
-  documento  String?
+  documento       String?
+  comprovante_url String?   // URL do arquivo no Supabase Storage
   pago_banco Boolean  @default(true)
   dedutivel  String   @default("sim") // sim | parcial | nao
   created_at DateTime @default(now())
