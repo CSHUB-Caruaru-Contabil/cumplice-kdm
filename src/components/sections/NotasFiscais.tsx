@@ -9,6 +9,7 @@ import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
   RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
 } from '@/components/ui'
+import BuscaLancamentos from '@/components/sections/BuscaLancamentos'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -198,6 +199,11 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
           </p>
         )}
       </Card>
+
+      {/* Busca e gestão de lançamentos — integrada na aba */}
+      <div className="mt-5">
+        <BuscaLancamentos clienteId={clienteId} periodo={periodo} refresh={refresh} onRecarregar={onRecarregar} />
+      </div>
 
       {editando && (
         <Modal title="Editar Nota Fiscal" onClose={() => setEditando(null)}>

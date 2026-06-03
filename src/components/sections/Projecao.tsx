@@ -8,14 +8,22 @@ import { Btn, Card, CardTitle, Input, Select, brl, pct } from '@/components/ui'
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void; cliente: Cliente }
 
 export default function Projecao({ cliente }: Props) {
+  const regimeAtual = (cliente.regime || '').toLowerCase()
+  const jaEhPresumido = regimeAtual.includes('presumido')
+  const jaEhReal      = regimeAtual.includes('real')
+  const jaEhSimples   = regimeAtual.includes('simples')
+
   const [fat, setFat] = useState(148320)
   const [acum, setAcum] = useState(645200)
   const [folha, setFolha] = useState(18500)
   const [regime, setRegime] = useState<'simples' | 'presumido'>('simples')
 
-  const simples = calcularSimples(acum, fat)
+  const simples   = calcularSimples(acum, fat)
   const presumido = calcularLucroPresumido(fat)
-  const melhor = simples.imposto <= presumido.total ? 'simples' : 'presumido'
+
+  // Se já é Presumido, compara com Simples (verificar se migração faz sentido)
+  // Se já é Simples, compara com Presumido (padrão)
+  const melhor  = simples.imposto <= presumido.total ? 'simples' : 'presumido'
   const economia = Math.abs(simples.imposto - presumido.total)
 
   const fatorR = folha > 0 && fat > 0 ? (folha / fat * 100).toFixed(1) : '0'
@@ -132,23 +140,40 @@ export default function Projecao({ cliente }: Props) {
         </Card>
       </div>
 
-      {/* Recomendação */}
+      {/* Recomendação — contextual ao regime atual */}
       <Card style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.3)' }}>
         <CardTitle>📌 Recomendação Estratégica</CardTitle>
         <div style={{ fontSize: 13, lineHeight: 1.7 }}>
-          {melhor === 'simples' ? (
+          {jaEhPresumido ? (
+            // Empresa já é Presumido — compara com Simples
+            simples.imposto < presumido.total ? (
+              <>
+                <strong>⚠️ Verificar elegibilidade ao Simples Nacional.</strong> Com o faturamento atual, o Simples Nacional teria carga de{' '}
+                <strong>{pct(simples.aliquota_efetiva * 100, 2)}</strong> versus {pct(presumido.total / fat * 100, 2)} no Lucro Presumido.
+                Economia potencial de <strong>{brl(economia)}/mês</strong>. Verifique se a empresa é elegível ao Simples.<br /><br />
+                📌 <strong>Atenção:</strong> A migração para o Simples tem restrições (vedações, atividades, faturamento). Consulte um especialista antes de decidir.
+              </>
+            ) : (
+              <>
+                <strong>✅ Lucro Presumido é a opção mais vantajosa.</strong> Com alíquota efetiva de {pct(presumido.total / fat * 100, 2)},
+                o Lucro Presumido é mais econômico que o Simples Nacional ({pct(simples.aliquota_efetiva * 100, 2)}) para o faturamento atual.
+                Economia de <strong>{brl(economia)}/mês</strong> em relação ao Simples.<br /><br />
+                📌 O regime atual está otimizado. Reavalie anualmente conforme o crescimento do faturamento.
+              </>
+            )
+          ) : melhor === 'simples' ? (
             <>
               <strong>✅ Manter Simples Nacional.</strong> Com faturamento acumulado de {brl(acum)}, a alíquota efetiva de{' '}
               <strong>{pct(simples.aliquota_efetiva * 100, 2)}</strong> é competitiva frente ao Lucro Presumido (
               {fat > 0 ? pct(presumido.total / fat * 100, 2) : '—%'}). A permanência no Simples representa uma economia de{' '}
               <strong>{brl(economia)}/mês</strong>.<br /><br />
-              📌 <strong>Ponto de atenção:</strong> Se o faturamento crescer acima de R$ 720.000/ano, a alíquota efetiva do Simples pode subir para ~9,5%. Reavaliar o regime no próximo semestre.
+              📌 <strong>Ponto de atenção:</strong> Se o faturamento crescer acima de R$ 720.000/ano, reavalie o regime.
             </>
           ) : (
             <>
-              <strong>⚠️ Avaliar migração para Lucro Presumido.</strong> No nível atual de faturamento, o Lucro Presumido apresenta carga de{' '}
-              {fat > 0 ? pct(presumido.total / fat * 100, 2) : '—%'} versus {pct(simples.aliquota_efetiva * 100, 2)} no Simples. Economia potencial de{' '}
-              <strong>{brl(economia)}/mês</strong>. Recomenda-se análise detalhada com planejamento de distribuição de lucros.
+              <strong>⚠️ Avaliar migração para Lucro Presumido.</strong> O Lucro Presumido apresenta carga de{' '}
+              {fat > 0 ? pct(presumido.total / fat * 100, 2) : '—%'} versus {pct(simples.aliquota_efetiva * 100, 2)} no Simples.
+              Economia potencial de <strong>{brl(economia)}/mês</strong>.
             </>
           )}
         </div>

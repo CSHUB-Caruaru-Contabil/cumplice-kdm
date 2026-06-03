@@ -48,7 +48,6 @@ const NAV_ITEMS: { section: string; items: NavItem[] }[] = [
     items: [
       { id: 'cruzamento', icon: ScanSearch, label: 'Cruzamento', badge: '!' },
       { id: 'projecao',   icon: TrendingUp, label: 'Projeção Tributária' },
-      { id: 'busca',      icon: Search,     label: 'Buscar Lançamentos' },
     ],
   },
   {

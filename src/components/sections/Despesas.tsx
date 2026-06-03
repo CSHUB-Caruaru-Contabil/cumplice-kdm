@@ -151,11 +151,22 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
             <Input label="Data" type="date" value={editando.data} onChange={e => setEditando({ ...editando, data: e.target.value })} />
             <Input label="Descrição" value={editando.descricao} onChange={e => setEditando({ ...editando, descricao: e.target.value })} />
             <Input label="Valor (R$)" type="number" value={String(editando.valor)} onChange={e => setEditando({ ...editando, valor: parseFloat(e.target.value) || 0 })} />
-            <Select label="Categoria" value={editando.categoria || ''} onChange={e => setEditando({ ...editando, categoria: e.target.value })}>
-              <option>Aluguel</option><option>Energia Elétrica</option><option>Folha de Pagamento</option>
-              <option>Pró-Labore</option><option>Telefone/Internet</option><option>Contabilidade</option>
-              <option>Marketing</option><option>Manutenção</option><option>Outro</option>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Categoria</label>
+              <input
+                list="categorias-despesa"
+                value={editando.categoria || ''}
+                onChange={e => setEditando({ ...editando, categoria: e.target.value })}
+                placeholder="Selecione ou digite..."
+                className="h-9 rounded-md border border-border bg-secondary text-foreground text-sm px-3 focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <datalist id="categorias-despesa">
+                <option>Aluguel</option><option>Energia Elétrica</option><option>Folha de Pagamento</option>
+                <option>Pró-Labore</option><option>Telefone/Internet</option><option>Contabilidade</option>
+                <option>Marketing</option><option>Manutenção</option><option>Tecnologia/Software</option>
+                <option>Serviços Gerais</option><option>Imposto/Tributo</option><option>Outro</option>
+              </datalist>
+            </div>
             <Input label="Documento Fiscal" value={editando.documento || ''} onChange={e => setEditando({ ...editando, documento: e.target.value || null })} placeholder="NF, Recibo..." />
             <Select label="Pago pelo Banco?" value={editando.pago_banco ? 'sim' : 'nao'} onChange={e => setEditando({ ...editando, pago_banco: e.target.value === 'sim' })}>
               <option value="sim">Sim</option><option value="nao">Não</option>
