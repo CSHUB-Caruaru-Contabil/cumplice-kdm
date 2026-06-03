@@ -21,8 +21,8 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
       const [{ data: notas }, { data: compras }, { data: despesas }, { data: banco }] = await Promise.all([
         supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
         supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
-        supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
-        supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
+        supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo),
+        supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo),
       ])
       setDados({
         notas: (notas || []) as NotaFiscal[],
