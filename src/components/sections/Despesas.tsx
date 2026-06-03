@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Despesa } from '@/lib/supabase/types'
+import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
   RowActions, Select, Table, Td, Toast, Tr, brl, fmtData,
@@ -43,6 +44,8 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
 
   async function adicionar() {
     if (!desc || !valor) return
+    const erroP = await checkPeriodoAberto(clienteId, data)
+    if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('despesas').insert({
       cliente_id: clienteId, periodo: data.substring(0, 7), data, descricao: desc,

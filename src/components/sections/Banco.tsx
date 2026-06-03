@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Upload, Plus, Landmark } from 'lucide-react'
 import ContasBancarias from '@/components/ContasBancarias'
+import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -74,6 +75,8 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
 
   async function adicionar() {
     if (!desc || !valor) return
+    const erroP = await checkPeriodoAberto(clienteId, data)
+    if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('banco_lancamentos').insert({
       cliente_id: clienteId, periodo: data.substring(0, 7), data, descricao: desc,

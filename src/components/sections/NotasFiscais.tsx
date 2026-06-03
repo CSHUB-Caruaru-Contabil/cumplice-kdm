@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { NotaFiscal } from '@/lib/supabase/types'
+import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
   RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
@@ -39,6 +40,8 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
 
   async function adicionar() {
     if (!numero || !valor) return
+    const erroP = await checkPeriodoAberto(clienteId, data)
+    if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('notas_fiscais').insert({
       cliente_id: clienteId, periodo: data.substring(0, 7), data, numero,

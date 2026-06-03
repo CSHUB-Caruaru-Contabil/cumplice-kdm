@@ -8,6 +8,7 @@ import {
   RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
 } from '@/components/ui'
 import { parseMultiplosXML } from '@/lib/parsers/nfe'
+import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -46,6 +47,8 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
 
   async function adicionar() {
     if (!fornecedor || !valor) return
+    const erroP = await checkPeriodoAberto(clienteId, data)
+    if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('compras').insert({
       cliente_id: clienteId, periodo: data.substring(0, 7), data,
