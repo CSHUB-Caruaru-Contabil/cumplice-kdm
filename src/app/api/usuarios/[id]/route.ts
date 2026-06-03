@@ -8,7 +8,7 @@ async function getAuthUser() {
   return user
 }
 
-// PUT /api/usuarios/[id] — atualiza e-mail, papel e clientes vinculados
+// PUT /api/usuarios/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,16 +17,16 @@ export async function PUT(
   if (!authUser) return NextResponse.json({ erro: 'Não autenticado' }, { status: 401 })
 
   const { id: userId } = await params
-  const { email, senha, cliente_ids, papel } = await request.json()
+  const { email, senha, papel } = await request.json()
 
-  // Atualiza e-mail se fornecido
+  // Atualiza e-mail
   if (email) {
     await prisma.$executeRaw`
       UPDATE auth.users SET email = ${email}, updated_at = NOW() WHERE id = ${userId}::uuid
     `
   }
 
-  // Atualiza senha se fornecida
+  // Atualiza senha
   if (senha && senha.trim() !== '') {
     await prisma.$executeRaw`
       UPDATE auth.users
@@ -35,23 +35,32 @@ export async function PUT(
     `
   }
 
-  // Atualiza vínculos com clientes
-  if (Array.isArray(cliente_ids)) {
-    // Remove vínculos antigos
-    await prisma.usuarioCliente.deleteMany({ where: { usuario_id: userId } })
+  // Atualiza papel em TODOS os vínculos do usuário
+  if (papel) {
+    const vinculos = await prisma.usuarioCliente.findMany({ where: { usuario_id: userId } })
 
-    // Cria novos vínculos
-    for (const clienteId of cliente_ids) {
-      await prisma.usuarioCliente.create({
-        data: { usuario_id: userId, cliente_id: clienteId, papel: papel || 'contador' },
+    if (vinculos.length > 0) {
+      await prisma.usuarioCliente.updateMany({
+        where: { usuario_id: userId },
+        data: { papel },
       })
+    } else {
+      // Sem vínculos — vincula a todos os clientes com o novo papel
+      const clientes = await prisma.cliente.findMany({ where: { ativo: true }, select: { id: true } })
+      for (const { id: clienteId } of clientes) {
+        await prisma.usuarioCliente.upsert({
+          where: { usuario_id_cliente_id: { usuario_id: userId, cliente_id: clienteId } },
+          update: { papel },
+          create: { usuario_id: userId, cliente_id: clienteId, papel },
+        })
+      }
     }
   }
 
   return NextResponse.json({ ok: true })
 }
 
-// DELETE /api/usuarios/[id] — remove usuário (desvincula dos clientes)
+// DELETE /api/usuarios/[id]
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -61,15 +70,11 @@ export async function DELETE(
 
   const { id: userId } = await params
 
-  // Impede auto-exclusão
   if (userId === authUser.id) {
     return NextResponse.json({ erro: 'Você não pode excluir o próprio usuário' }, { status: 400 })
   }
 
-  // Remove todos os vínculos
   await prisma.usuarioCliente.deleteMany({ where: { usuario_id: userId } })
-
-  // Deleta o usuário do Supabase Auth
   await prisma.$executeRaw`DELETE FROM auth.users WHERE id = ${userId}::uuid`
 
   return NextResponse.json({ ok: true })

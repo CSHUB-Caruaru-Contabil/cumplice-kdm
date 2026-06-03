@@ -201,13 +201,16 @@ export default function Usuarios({ onRecarregar }: Props) {
                   </div>
                 </div>
 
-                {/* Papel */}
-                <PapelBadge papel={papel} />
-
-                {/* Acesso */}
-                <span className="text-[11px] text-muted-foreground bg-secondary border border-border px-2 py-1 rounded-lg whitespace-nowrap hidden md:block">
-                  🏢 Todas as empresas
-                </span>
+                {/* Papel + capacidades */}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <PapelBadge papel={papel} />
+                  {papel === 'admin' && (
+                    <span className="text-[10px] text-purple-400/70 flex items-center gap-1">
+                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      Pode fechar períodos
+                    </span>
+                  )}
+                </div>
 
                 {/* Ações */}
                 <div className="flex gap-1 shrink-0">
@@ -269,12 +272,22 @@ export default function Usuarios({ onRecarregar }: Props) {
               value={form.papel}
               onChange={e => setForm({ ...form, papel: e.target.value })}
             >
-              <option value="contador">Contador</option>
-              <option value="dono">Dono / Sócio</option>
-              <option value="admin">Admin</option>
+              <option value="contador">Contador — visualiza e lança dados</option>
+              <option value="dono">Sócio / Dono — acesso completo de leitura</option>
+              <option value="admin">Admin — pode fechar períodos e gerenciar usuários</option>
             </Select>
 
-            {/* Acesso global — sem seleção de clientes */}
+            {/* Info do papel selecionado */}
+            {form.papel === 'admin' && (
+              <div className="col-span-2 flex items-center gap-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <svg className="h-4 w-4 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <p className="text-xs text-purple-300">
+                  <strong>Admin</strong> pode fechar/reabrir períodos, bloquear importações e gerenciar usuários.
+                </p>
+              </div>
+            )}
+
+            {/* Acesso global */}
             <div className="col-span-2 flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
               <span className="text-primary text-sm">🏢</span>
               <p className="text-xs text-muted-foreground">
