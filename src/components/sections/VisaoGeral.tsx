@@ -50,12 +50,14 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
 
   // Totais por tipo
   const total_remessas         = notasRemessa.reduce((s, n) => s + n.valor, 0)
+  // (notasRetorno agora é remessa, total_retornos mantido para compatibilidade)
   const total_retornos         = notasRetorno.reduce((s, n) => s + n.valor, 0)
 
-  // Faturamento real = vendas - devoluções - retornos (remessas são neutras)
+  // Faturamento real = vendas - devoluções de venda (6201/6202)
+  // 6902/5902 e outros retornos são NEUTROS — excluídos mas não deduzem
   const faturamento_vendas     = notasVenda.reduce((s, n) => s + n.valor, 0)
   const faturamento_devolucoes = notasDevolucao.reduce((s, n) => s + n.valor, 0)
-  const faturamento_nf         = faturamento_vendas - faturamento_devolucoes - total_retornos
+  const faturamento_nf         = faturamento_vendas - faturamento_devolucoes
 
   const entradas_banco = banco.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0)
   const total_compras = compras.reduce((s, c) => s + c.valor, 0)
@@ -104,11 +106,11 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
         <KpiCard label="Faturamento Real" value={brl(faturamento_nf)}
           delta={
-            total_remessas > 0 || total_retornos > 0
-              ? `−${brl(total_retornos)} retornos · remessas excl.`
+            total_remessas > 0
+              ? `remessas/retornos excluídos: ${brl(total_remessas)}`
               : `${notasVenda.length} NFs de venda`
           }
-          deltaType={total_remessas > 0 || total_retornos > 0 ? 'warn' : undefined}
+          deltaType={total_remessas > 0 ? 'warn' : undefined}
           topColor="var(--accent)" />
         <KpiCard label="Entradas no Banco" value={brl(entradas_banco)}
           delta={divergencia_banco_nf > 0 ? `⚠ ${brl(divergencia_banco_nf)} sem NF` : '✓ Conciliado'}
