@@ -201,16 +201,13 @@ export default function Usuarios({ onRecarregar }: Props) {
                   </div>
                 </div>
 
-                {/* Papel + capacidades */}
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <PapelBadge papel={papel} />
-                  {papel === 'admin' && (
-                    <span className="text-[10px] text-purple-400/70 flex items-center gap-1">
-                      <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                      Pode fechar períodos
-                    </span>
-                  )}
-                </div>
+                {/* Seletor de papel inline */}
+                <RolePicker
+                  userId={u.id}
+                  papelAtual={papel}
+                  disabled={isVoce}
+                  onChanged={carregar}
+                />
 
                 {/* Ações */}
                 <div className="flex gap-1 shrink-0">
@@ -314,6 +311,76 @@ export default function Usuarios({ onRecarregar }: Props) {
       )}
 
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
+    </div>
+  )
+}
+
+// ── Seletor de papel inline no card ─────────────────────────────────────────
+function RolePicker({ userId, papelAtual, disabled, onChanged }: {
+  userId: string
+  papelAtual: string
+  disabled: boolean
+  onChanged: () => void
+}) {
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const PAPEIS = [
+    { value: 'contador', label: 'Contador',    desc: 'Lança e visualiza dados' },
+    { value: 'dono',     label: 'Sócio/Dono',  desc: 'Acesso completo' },
+    { value: 'admin',    label: 'Admin',        desc: 'Fecha períodos + gerencia usuários' },
+  ]
+
+  async function mudar(novoPapel: string) {
+    if (novoPapel === papelAtual || salvando) return
+    setSalvando(true); setErro('')
+    const res = await fetch(`/api/usuarios/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ papel: novoPapel }),
+    })
+    const result = await res.json()
+    if (!res.ok) { setErro(result.erro || 'Erro ao salvar'); setSalvando(false); return }
+    setSalvando(false)
+    onChanged()
+  }
+
+  const cores: Record<string, string> = {
+    admin:    'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    dono:     'bg-amber-500/15  text-amber-300  border-amber-500/30',
+    contador: 'bg-blue-500/15   text-blue-300   border-blue-500/30',
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1 shrink-0">
+      <div className="relative">
+        <select
+          value={papelAtual}
+          onChange={e => mudar(e.target.value)}
+          disabled={disabled || salvando}
+          className={`appearance-none text-[11px] font-semibold pl-2.5 pr-6 py-1 rounded-full border cursor-pointer
+            focus:outline-none focus:ring-1 focus:ring-ring transition-opacity
+            ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}
+            ${cores[papelAtual] || cores.contador}`}
+        >
+          {PAPEIS.map(p => (
+            <option key={p.value} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+        {/* Seta customizada */}
+        <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 opacity-60"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+      {papelAtual === 'admin' && !disabled && (
+        <span className="text-[10px] text-purple-400/70 flex items-center gap-0.5">
+          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Pode fechar períodos
+        </span>
+      )}
+      {salvando && <span className="text-[10px] text-muted-foreground">Salvando...</span>}
+      {erro && <span className="text-[10px] text-red-400">{erro}</span>}
     </div>
   )
 }
