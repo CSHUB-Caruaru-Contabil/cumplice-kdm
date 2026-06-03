@@ -113,6 +113,18 @@ export function parseOFX(content: string): OFXResultado {
       const valor = Math.abs(trnamt)
       if (valor === 0) continue
 
+      // ── Filtra entradas de saldo (não são transações reais) ───────────────
+      // Bancos BR inserem linhas de saldo dentro do STMTTRN que distorcem totais
+      // Qualquer memo que começa com "SALDO" é descartado (SALDO ANTERIOR,
+      // SALDO DO DIA, SALDO TOTAL DISPONÍVEL DIA, SALDO FINAL, etc.)
+      const memoUpper = memo.toUpperCase().trim()
+      const ehSaldo =
+        memoUpper.startsWith('SALDO') ||   // cobre TODOS os padrões de saldo
+        memoUpper === 'SD' ||              // abreviação comum do BB
+        trntype === 'SBAL' ||              // tipo OFX específico de saldo
+        trntype === 'SBALANCE'
+      if (ehSaldo) continue
+
       // Determina entrada/saída pelo valor ou pelo TRNTYPE
       const tiposCredito = ['CREDIT', 'DEP', 'INT', 'DIVIDEND', 'DIRECTDEP']
       const tipo: 'entrada' | 'saida' =
