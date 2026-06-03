@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { calcularSimples, calcularLucroPresumido } from '@/lib/crossref'
 import type { Cliente, Compra, Despesa, NotaFiscal, BancoLancamento } from '@/lib/supabase/types'
 import { AlertBar, Card, CardTitle, KpiCard, Tag, brl, brlC, pct } from '@/components/ui'
-import { ehVenda, ehRemessa, ehRetorno, ehDevolucao } from '@/lib/cfop'
+import { ehVenda, ehRemessa, ehRetorno, ehDevolucao, ehDevolucaoEntrada } from '@/lib/cfop'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void; cliente: Cliente }
 
@@ -80,7 +80,13 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
   const faturamento_nf         = faturamento_vendas - faturamento_devolucoes - total_retornos
 
   const entradas_banco = banco.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0)
-  const total_compras = compras.reduce((s, c) => s + c.valor, 0)
+
+  // Compras brutas (todas as entradas 1xxx/2xxx exceto devoluções de entrada)
+  const compras_brutas       = compras.filter(c => !ehDevolucaoEntrada(c.cfop)).reduce((s, c) => s + c.valor, 0)
+  // Devoluções de venda recebidas (cliente devolveu) — deduzem o total de compras
+  const devolucoes_entrada   = compras.filter(c => ehDevolucaoEntrada(c.cfop)).reduce((s, c) => s + c.valor, 0)
+  const total_compras        = compras_brutas - devolucoes_entrada
+
   const total_despesas = despesas.reduce((s, d) => s + d.valor, 0)
 
   const compras_sem_nf = compras.filter(c => c.status === 'sem_nf').reduce((s, c) => s + c.valor, 0)
@@ -171,12 +177,14 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
           delta={divergencia_banco_nf > 0 ? `⚠ ${brlC(divergencia_banco_nf)} sem NF` : '✓ Conciliado'}
           deltaType={divergencia_banco_nf > 0 ? 'warn' : 'up'} topColor="var(--green)" />
         <KpiCard
-          label={usando_sim ? 'CMV (simulação)' : 'Compras do Período'}
+          label={usando_sim ? 'CMV (simulação)' : 'Compras Líquidas'}
           value={usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : brlC(total_compras)}
           delta={usando_sim && cmv_simulado !== null
             ? `Est.ini ${brlC(estoqueIni)} · Est.fin ${brlC(estoqueFin)}`
-            : '⚠ CMV requer estoque — use o simulador'}
-          deltaType={usando_sim ? undefined : 'warn'}
+            : devolucoes_entrada > 0
+              ? `Bruto ${brlC(compras_brutas)} − Dev. ${brlC(devolucoes_entrada)}`
+              : '⚠ CMV requer estoque — use o simulador'}
+          deltaType={usando_sim ? undefined : devolucoes_entrada > 0 ? undefined : 'warn'}
           topColor="var(--red)" />
         <KpiCard label="Imposto Estimado" value={brlC(imposto)}
           delta={faturamento_nf > 0 ? `${pct(aliquotaImposto)} · ${ehPresumido ? 'Presumido' : ehReal ? 'Lucro Real' : 'Simples'}` : '—'}
@@ -288,7 +296,14 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
             <span style={{ fontWeight: 700, color: 'var(--green)' }}>{brlC(faturamento_nf)}</span>
           </div>
           <div key="cmv" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>{usando_sim ? '(−) CMV (Est.Ini + Compras − Est.Fin)' : '(−) Compras do período'}</span>
+            <span style={{ color: 'var(--muted)' }}>
+              {usando_sim ? '(−) CMV (Est.Ini + Compras Líq. − Est.Fin)' : '(−) Compras Líquidas'}
+              {devolucoes_entrada > 0 && !usando_sim && (
+                <span style={{ fontSize: 10, color: 'var(--red)', marginLeft: 6 }}>
+                  (bruto {brl(compras_brutas)} − dev. {brl(devolucoes_entrada)})
+                </span>
+              )}
+            </span>
             <span style={{ fontWeight: 700, color: usando_sim ? undefined : 'var(--muted)' }}>
               {usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>— informe estoque</span>}
             </span>

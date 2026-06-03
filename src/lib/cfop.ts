@@ -3,7 +3,8 @@
 
 export type TipoOperacao =
   | 'venda'               // receita real
-  | 'devolucao'           // deduz faturamento
+  | 'devolucao'           // deduz faturamento (saída de devolução)
+  | 'devolucao_entrada'   // devolução de venda recebida — DEDUZ total de compras
   | 'remessa'             // movimentação de estoque, não é receita
   | 'retorno_remessa'     // retorno de estoque enviado
   | 'industrializacao'    // serviço de industrialização (custo)
@@ -62,11 +63,22 @@ const CFOP_MAP: Record<string, CFOPInfo> = {
   '5933': { tipo: 'venda', descricao: 'Prestação de serviço no município (ISSQN)',    badge: 'Serviço',   cor: 'text-green-400', impacto: 'positivo' },
   '6933': { tipo: 'venda', descricao: 'Prestação de serviço interestadual (ISSQN)',   badge: 'Serviço',   cor: 'text-green-400', impacto: 'positivo' },
 
-  // ── Devoluções (deduzem faturamento) ─────────────────────────────────────
-  '5201': { tipo: 'devolucao', descricao: 'Devolução de compra p/ industrialização', badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
-  '6201': { tipo: 'devolucao', descricao: 'Devolução interestadual de compra',       badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
-  '5202': { tipo: 'devolucao', descricao: 'Devolução de compra de mercadoria',       badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
-  '6202': { tipo: 'devolucao', descricao: 'Devolução interestadual de mercadoria',   badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
+  // ── Devoluções de saída (deduzem faturamento — NFs emitidas) ────────────
+  '5201': { tipo: 'devolucao', descricao: 'Devolução de compra p/ industrialização', badge: 'Dev.Saída',   cor: 'text-orange-400', impacto: 'negativo' },
+  '6201': { tipo: 'devolucao', descricao: 'Devolução interestadual de compra',       badge: 'Dev.Saída',   cor: 'text-orange-400', impacto: 'negativo' },
+  '5202': { tipo: 'devolucao', descricao: 'Devolução de compra de mercadoria',       badge: 'Dev.Saída',   cor: 'text-orange-400', impacto: 'negativo' },
+  '6202': { tipo: 'devolucao', descricao: 'Devolução interestadual de mercadoria',   badge: 'Dev.Saída',   cor: 'text-orange-400', impacto: 'negativo' },
+
+  // ── Devoluções de entrada (cliente devolveu mercadoria — DEDUZ compras) ──
+  '1201': { tipo: 'devolucao_entrada', descricao: 'Devolução de venda de produção própria',          badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '1202': { tipo: 'devolucao_entrada', descricao: 'Devolução de venda de mercadoria adquirida',      badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '1203': { tipo: 'devolucao_entrada', descricao: 'Devolução de venda p/ ZFM/ALC (produção)',        badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '1204': { tipo: 'devolucao_entrada', descricao: 'Devolução de venda p/ ZFM/ALC (mercadoria)',      badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '1410': { tipo: 'devolucao_entrada', descricao: 'Devolução de venda de mercadoria p/ uso e cons.', badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '2201': { tipo: 'devolucao_entrada', descricao: 'Devolução interestadual de venda de produção',    badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '2202': { tipo: 'devolucao_entrada', descricao: 'Devolução interestadual de venda de mercadoria',  badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '2203': { tipo: 'devolucao_entrada', descricao: 'Dev. interestadual de venda p/ ZFM/ALC',          badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
+  '2410': { tipo: 'devolucao_entrada', descricao: 'Dev. interestadual de venda p/ uso e cons.',      badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' },
 
   // ── Remessas (NÃO são receita — movimentação de estoque) ─────────────────
   '5901': { tipo: 'remessa', descricao: 'Remessa p/ industrialização por encomenda', badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
@@ -123,6 +135,11 @@ export function classificarCFOP(cfop: string | null | undefined): CFOPInfo {
     if (seg === '52' || seg === '62') return { tipo: 'devolucao', descricao: `CFOP ${clean}`, badge: 'Devolução', cor: 'text-orange-400', impacto: 'negativo' }
   }
   if (p === '1' || p === '2') {
+    const seg = clean.substring(0, 2)
+    // 12xx / 22xx são devoluções de venda recebidas — deduzem compras
+    if (seg === '12' || seg === '22') {
+      return { tipo: 'devolucao_entrada', descricao: `CFOP ${clean} — Dev. de venda`, badge: 'Dev.Entrada', cor: 'text-red-400', impacto: 'negativo' }
+    }
     return { tipo: 'compra', descricao: `CFOP ${clean}`, badge: 'Compra', cor: 'text-muted-foreground', impacto: 'negativo' }
   }
 
@@ -144,7 +161,12 @@ export function ehRetorno(cfop: string | null | undefined): boolean {
   return classificarCFOP(cfop).tipo === 'retorno_remessa'
 }
 
-/** CFOPs que são devoluções (deduzem faturamento) */
+/** CFOPs que são devoluções de saída (deduzem faturamento de vendas) */
 export function ehDevolucao(cfop: string | null | undefined): boolean {
   return classificarCFOP(cfop).tipo === 'devolucao'
+}
+
+/** CFOPs que são devoluções de entrada (cliente devolveu — deduzem total de compras) */
+export function ehDevolucaoEntrada(cfop: string | null | undefined): boolean {
+  return classificarCFOP(cfop).tipo === 'devolucao_entrada'
 }

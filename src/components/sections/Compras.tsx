@@ -113,6 +113,7 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
           cnpj_fornecedor: nfe.cnpj_emitente || null,
           valor: nfe.valor_total,
           nf_entrada: nfe.numero,
+          cfop: nfe.cfop || null,
           categoria: 'Mercadoria para Revenda',
           pagamento: 'Importado XML',
         })
