@@ -5,6 +5,7 @@ import { parseCSV } from '@/lib/parsers/csv'
 import { guardCliente } from '@/lib/supabase/auth-guard'
 import { verificarPeriodoAberto } from '@/lib/supabase/periodo-guard'
 import { conciliarPeriodo } from '@/lib/conciliar'
+import { categoriaOFXParaDespesa } from '@/lib/extrato-para-despesas'
 
 export async function POST(
   request: NextRequest,
@@ -112,6 +113,35 @@ export async function POST(
       porPeriodo[p] = (porPeriodo[p] || 0) + 1
     }
 
+    // ── Cria despesas automáticas para saídas identificadas ────────────────
+    let despesasCriadas = 0
+    for (const l of novos.filter(l => l.tipo === 'saida')) {
+      const categoriaDespesa = categoriaOFXParaDespesa(l.categoria || null)
+      if (!categoriaDespesa) continue
+
+      const periodo = l.data.substring(0, 7)
+      // Evita duplicata: verifica se já existe despesa com mesma data+valor+descrição
+      const existente = await prisma.despesa.findFirst({
+        where: { cliente_id: clienteId, periodo, data: new Date(l.data), valor: l.valor, descricao: l.descricao },
+        select: { id: true },
+      })
+      if (existente) continue
+
+      await prisma.despesa.create({
+        data: {
+          cliente_id: clienteId,
+          periodo,
+          data: new Date(l.data),
+          descricao: l.descricao,
+          categoria: categoriaDespesa,
+          valor: l.valor,
+          pago_banco: true,
+          dedutivel: 'sim',
+        },
+      }).catch(() => {})
+      despesasCriadas++
+    }
+
     // ── Conciliação automática para cada período importado ──────────────────
     const resultadosConcil: Record<string, number> = {}
     for (const p of Object.keys(porPeriodo)) {
@@ -127,6 +157,7 @@ export async function POST(
       por_periodo: porPeriodo,
       duplicados_ignorados: duplicatas + (novos.length - criados.count),
       conciliacoes: resultadosConcil,
+      despesas_criadas: despesasCriadas,
     })
   } catch (err) {
     console.error('[importar-banco]', err)

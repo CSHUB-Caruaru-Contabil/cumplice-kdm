@@ -141,6 +141,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
           }
         }
         if (result.duplicados_ignorados > 0) msg += ` · ${result.duplicados_ignorados} duplicado(s) ignorado(s)`
+        if (result.despesas_criadas > 0) msg += ` · ${result.despesas_criadas} despesa(s) criada(s) automaticamente`
         setToast(msg)
         await carregar(); onRecarregar()
       }
