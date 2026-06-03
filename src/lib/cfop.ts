@@ -1,0 +1,119 @@
+// Classificação de CFOPs para o Sistema Cúmplice
+// Usado para separar vendas reais de remessas/retornos nos cálculos financeiros
+
+export type TipoOperacao =
+  | 'venda'               // receita real
+  | 'devolucao'           // deduz faturamento
+  | 'remessa'             // movimentação de estoque, não é receita
+  | 'retorno_remessa'     // retorno de estoque enviado
+  | 'industrializacao'    // serviço de industrialização (custo)
+  | 'compra'              // entrada de mercadoria (custo)
+  | 'entrada_remessa'     // recebimento de remessa de terceiros
+  | 'outros'              // outros / verificar
+
+export interface CFOPInfo {
+  tipo: TipoOperacao
+  descricao: string
+  badge: string            // texto curto para exibir na tabela
+  cor: string              // classe Tailwind de cor
+  impacto: 'positivo' | 'negativo' | 'neutro'
+}
+
+const CFOP_MAP: Record<string, CFOPInfo> = {
+  // ── Vendas normais ────────────────────────────────────────────────────────
+  '5101': { tipo: 'venda', descricao: 'Venda de produto industrializado',            badge: 'Venda',       cor: 'text-green-400',  impacto: 'positivo' },
+  '6101': { tipo: 'venda', descricao: 'Venda interestadual de produto industrializado', badge: 'Venda',    cor: 'text-green-400',  impacto: 'positivo' },
+  '5102': { tipo: 'venda', descricao: 'Venda de mercadoria adquirida',                badge: 'Venda',       cor: 'text-green-400',  impacto: 'positivo' },
+  '6102': { tipo: 'venda', descricao: 'Venda interestadual de mercadoria',            badge: 'Venda',       cor: 'text-green-400',  impacto: 'positivo' },
+  '5405': { tipo: 'venda', descricao: 'Venda com substituição tributária',            badge: 'Venda ST',    cor: 'text-green-400',  impacto: 'positivo' },
+  '6403': { tipo: 'venda', descricao: 'Venda de mercadoria com ST (interestadual)',   badge: 'Venda ST',    cor: 'text-green-400',  impacto: 'positivo' },
+  '5107': { tipo: 'venda', descricao: 'Venda de produto industrializado p/ Zona Franca', badge: 'Venda',   cor: 'text-green-400',  impacto: 'positivo' },
+  '6107': { tipo: 'venda', descricao: 'Venda p/ Zona Franca',                        badge: 'Venda ZFM',   cor: 'text-green-400',  impacto: 'positivo' },
+  '5106': { tipo: 'venda', descricao: 'Venda a não contribuinte',                    badge: 'Venda',       cor: 'text-green-400',  impacto: 'positivo' },
+  '6106': { tipo: 'venda', descricao: 'Venda interestadual a não contribuinte',      badge: 'Venda',       cor: 'text-green-400',  impacto: 'positivo' },
+  '5108': { tipo: 'venda', descricao: 'Venda de mercadoria sujeita ao regime ST',    badge: 'Venda ST',    cor: 'text-green-400',  impacto: 'positivo' },
+  '6108': { tipo: 'venda', descricao: 'Venda interestadual c/ retenção ST',          badge: 'Venda ST',    cor: 'text-green-400',  impacto: 'positivo' },
+
+  // ── Devoluções (deduzem faturamento) ─────────────────────────────────────
+  '5201': { tipo: 'devolucao', descricao: 'Devolução de compra p/ industrialização', badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
+  '6201': { tipo: 'devolucao', descricao: 'Devolução interestadual de compra',       badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
+  '5202': { tipo: 'devolucao', descricao: 'Devolução de compra de mercadoria',       badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
+  '6202': { tipo: 'devolucao', descricao: 'Devolução interestadual de mercadoria',   badge: 'Devolução',   cor: 'text-orange-400', impacto: 'negativo' },
+
+  // ── Remessas (NÃO são receita — movimentação de estoque) ─────────────────
+  '5901': { tipo: 'remessa', descricao: 'Remessa p/ industrialização por encomenda', badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '6901': { tipo: 'remessa', descricao: 'Remessa interestadual p/ industrialização', badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '5903': { tipo: 'remessa', descricao: 'Remessa p/ venda fora do estabelecimento',  badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '6903': { tipo: 'remessa', descricao: 'Remessa interestadual p/ venda',            badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '5910': { tipo: 'remessa', descricao: 'Remessa em bonificação',                    badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '5949': { tipo: 'remessa', descricao: 'Outra saída de mercadoria',                 badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+  '6949': { tipo: 'remessa', descricao: 'Outra saída interestadual',                 badge: 'Remessa',     cor: 'text-yellow-400', impacto: 'neutro' },
+
+  // ── Retornos de remessa ───────────────────────────────────────────────────
+  '5902': { tipo: 'retorno_remessa', descricao: 'Retorno de industrialização',       badge: 'Retorno',     cor: 'text-blue-400',   impacto: 'neutro' },
+  '6902': { tipo: 'retorno_remessa', descricao: 'Retorno interestadual de industrialização', badge: 'Retorno', cor: 'text-blue-400', impacto: 'neutro' },
+  '5904': { tipo: 'retorno_remessa', descricao: 'Retorno de remessa p/ venda',       badge: 'Retorno',     cor: 'text-blue-400',   impacto: 'neutro' },
+  '5929': { tipo: 'retorno_remessa', descricao: 'Retorno de mercadoria em exposição', badge: 'Retorno',    cor: 'text-blue-400',   impacto: 'neutro' },
+  '6908': { tipo: 'retorno_remessa', descricao: 'Retorno de mercadoria depositada',  badge: 'Retorno',     cor: 'text-blue-400',   impacto: 'neutro' },
+  '6923': { tipo: 'retorno_remessa', descricao: 'Retorno de depósito fechado',       badge: 'Retorno',     cor: 'text-blue-400',   impacto: 'neutro' },
+
+  // ── Industrialização ─────────────────────────────────────────────────────
+  '5124': { tipo: 'industrializacao', descricao: 'Industrialização efetuada (entrada)', badge: 'Indust.', cor: 'text-purple-400', impacto: 'neutro' },
+  '6124': { tipo: 'industrializacao', descricao: 'Industrialização efetuada p/ outro estabelecimento', badge: 'Indust.', cor: 'text-purple-400', impacto: 'neutro' },
+
+  // ── Entradas de remessa (compras de terceiros) ────────────────────────────
+  '1901': { tipo: 'entrada_remessa', descricao: 'Entrada p/ industrialização por encomenda', badge: 'Ent.Rem.', cor: 'text-cyan-400', impacto: 'neutro' },
+  '2901': { tipo: 'entrada_remessa', descricao: 'Entrada interestadual p/ industrialização', badge: 'Ent.Rem.', cor: 'text-cyan-400', impacto: 'neutro' },
+  '1902': { tipo: 'entrada_remessa', descricao: 'Retorno de mercadoria enviada p/ industrialização', badge: 'Ret.Rem.', cor: 'text-cyan-400', impacto: 'neutro' },
+  '2216': { tipo: 'entrada_remessa', descricao: 'Entrada de mercadoria p/ industrialização', badge: 'Ent.Rem.', cor: 'text-cyan-400', impacto: 'neutro' },
+
+  // ── Compras normais ───────────────────────────────────────────────────────
+  '1101': { tipo: 'compra', descricao: 'Compra p/ industrialização',                 badge: 'Compra',      cor: 'text-muted-foreground', impacto: 'negativo' },
+  '2101': { tipo: 'compra', descricao: 'Compra interestadual p/ industrialização',   badge: 'Compra',      cor: 'text-muted-foreground', impacto: 'negativo' },
+  '1102': { tipo: 'compra', descricao: 'Compra p/ comercialização',                  badge: 'Compra',      cor: 'text-muted-foreground', impacto: 'negativo' },
+  '2102': { tipo: 'compra', descricao: 'Compra interestadual p/ comercialização',    badge: 'Compra',      cor: 'text-muted-foreground', impacto: 'negativo' },
+  '6912': { tipo: 'outros', descricao: 'Remessa p/ demonstração',                    badge: 'Demo',        cor: 'text-muted-foreground', impacto: 'neutro' },
+  '6913': { tipo: 'outros', descricao: 'Retorno de demonstração',                    badge: 'Ret.Demo',    cor: 'text-muted-foreground', impacto: 'neutro' },
+  '6911': { tipo: 'outros', descricao: 'Remessa p/ armazenagem',                     badge: 'Armazém',     cor: 'text-muted-foreground', impacto: 'neutro' },
+}
+
+export function classificarCFOP(cfop: string | null | undefined): CFOPInfo {
+  if (!cfop) return { tipo: 'outros', descricao: 'Sem CFOP', badge: '—', cor: 'text-muted-foreground', impacto: 'neutro' }
+
+  const clean = cfop.trim()
+  if (CFOP_MAP[clean]) return CFOP_MAP[clean]
+
+  // Inferência por prefixo quando não está no mapa
+  const p = clean.substring(0, 1)
+  if (p === '5' || p === '6') {
+    const seg = clean.substring(0, 2)
+    if (seg === '51' || seg === '61') return { tipo: 'venda', descricao: `CFOP ${clean}`, badge: 'Venda', cor: 'text-green-400', impacto: 'positivo' }
+    if (seg === '59' || seg === '69') return { tipo: 'remessa', descricao: `CFOP ${clean}`, badge: 'Remessa', cor: 'text-yellow-400', impacto: 'neutro' }
+    if (seg === '52' || seg === '62') return { tipo: 'devolucao', descricao: `CFOP ${clean}`, badge: 'Devolução', cor: 'text-orange-400', impacto: 'negativo' }
+  }
+  if (p === '1' || p === '2') {
+    return { tipo: 'compra', descricao: `CFOP ${clean}`, badge: 'Compra', cor: 'text-muted-foreground', impacto: 'negativo' }
+  }
+
+  return { tipo: 'outros', descricao: `CFOP ${clean}`, badge: clean, cor: 'text-muted-foreground', impacto: 'neutro' }
+}
+
+/** CFOPs que contam como faturamento real */
+export function ehVenda(cfop: string | null | undefined): boolean {
+  return classificarCFOP(cfop).tipo === 'venda'
+}
+
+/** CFOPs que são remessa (NÃO contam como receita) */
+export function ehRemessa(cfop: string | null | undefined): boolean {
+  return classificarCFOP(cfop).tipo === 'remessa'
+}
+
+/** CFOPs que são retorno de remessa */
+export function ehRetorno(cfop: string | null | undefined): boolean {
+  return classificarCFOP(cfop).tipo === 'retorno_remessa'
+}
+
+/** CFOPs que são devoluções (deduzem faturamento) */
+export function ehDevolucao(cfop: string | null | undefined): boolean {
+  return classificarCFOP(cfop).tipo === 'devolucao'
+}

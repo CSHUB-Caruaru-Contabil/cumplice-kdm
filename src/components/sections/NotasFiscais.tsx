@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { NotaFiscal } from '@/lib/supabase/types'
 import { checkPeriodoAberto } from '@/lib/periodo-check-client'
+import { classificarCFOP } from '@/lib/cfop'
 import {
   Badge, Btn, Card, CardTitle, ConfirmDelete, Input, Modal,
   RowActions, Select, Table, Td, Toast, Tr, UploadZone, brl, fmtData,
@@ -156,19 +157,34 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por número da NF ou cliente..."
             className="w-full h-8 rounded-md border border-border bg-secondary text-foreground text-xs pl-8 pr-3 focus:outline-none focus:ring-1 focus:ring-ring" />
         </div>
-        <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP', 'Valor', 'Recebimento', 'Banco', '']}>
-          {visiveis.map(n => (
+        <Table headers={['Data', 'Nº NF', 'Cliente', 'CFOP / Tipo', 'Valor', 'Recebimento', 'Banco', '']}>
+          {visiveis.map(n => {
+            const cfopInfo = classificarCFOP(n.cfop)
+            return (
             <Tr key={n.id}>
               <Td>{fmtData(n.data)}</Td>
               <Td mono>{n.numero}</Td>
               <Td>{n.cliente_nf}</Td>
-              <Td mono>{n.cfop}</Td>
-              <Td>{brl(n.valor)}</Td>
+              <Td>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-mono text-xs">{n.cfop}</span>
+                  <span className={`text-[10px] font-semibold ${cfopInfo.cor}`}>{cfopInfo.badge}</span>
+                </div>
+              </Td>
+              <Td>
+                <span className={cfopInfo.tipo === 'remessa' || cfopInfo.tipo === 'retorno_remessa' ? 'text-muted-foreground line-through' : ''}>
+                  {brl(n.valor)}
+                </span>
+                {(cfopInfo.tipo === 'remessa' || cfopInfo.tipo === 'retorno_remessa') && (
+                  <span className="text-[10px] text-yellow-400 block">não conta</span>
+                )}
+              </Td>
               <Td>{n.recebimento}</Td>
               <Td><Badge variant={n.conciliada ? 'ok' : 'warn'}>{n.conciliada ? '✓ Conciliado' : 'Pendente'}</Badge></Td>
               <Td><RowActions onEdit={() => setEditando({ ...n })} onDelete={() => setExcluindo(n.id)} /></Td>
             </Tr>
-          ))}
+            )
+          })}
         </Table>
         {visiveis.length === 0 && (
           <p className="text-center py-8 text-muted-foreground text-sm">
