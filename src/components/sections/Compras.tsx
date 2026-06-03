@@ -145,13 +145,24 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
     onRecarregar()
 
     // Feedback detalhado
+    // Filtra flags internas que não são erros reais do usuário
+    const errosReais = erros.filter(e =>
+      e.erro !== '__evento__' && !e.erro.startsWith('Arquivo ignorado:')
+    )
+    const eventosIgnorados = erros.filter(e =>
+      e.erro === '__evento__' || e.erro.startsWith('Arquivo ignorado:')
+    )
+    if (eventosIgnorados.length > 0) {
+      avisos.push(`${eventosIgnorados.length} arquivo(s) de evento/cancelamento ignorado(s) — importe em Notas Fiscais`)
+    }
+
     if (inseridos > 0) {
       setToast(`${inseridos} compra(s) importada(s)!`)
     }
-    const todoErros = [...erros.map(e => e.erro), ...errosInsert]
+    const todoErros = [...errosReais.map(e => e.erro), ...errosInsert]
     if (todoErros.length > 0) setToast(`Erro: ${todoErros[0]}`)
     if (inseridos === 0 && todoErros.length === 0 && avisos.length > 0) {
-      setToast(`Erro: ${avisos[0]}`)
+      setToast(`Aviso: ${avisos[0]}`)
     }
 
     setImportando(false)
