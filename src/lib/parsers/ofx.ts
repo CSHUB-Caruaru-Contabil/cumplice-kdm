@@ -34,8 +34,12 @@ const CATEGORIAS: [string, string[]][] = [
   ['Telefone/Internet',    ['VIVO', 'CLARO', 'TIM ', 'NET COMBO', 'EMBRATEL', 'OI FIXO', 'TELEFONE', 'INTERNET']],
   ['Imposto/Tributo',      ['DAS-', 'DAS ', 'DARF', ' GPS ', 'FGTS', 'SIMPLES NAC', 'RECEITA FED', 'TRIBUTO', 'INSS', 'PG ORG GOV', 'PGTO TRIBUTO']],
   ['Contabilidade',        ['CONTABILIDADE', 'HONORARIOS', 'ESCRIT CONT']],
+  // Serviços prestados por terceiros
+  ['Marketing',            ['MARKETING', 'PUBLICIDADE', 'PROPAGANDA', 'MIDIA', 'AGENCIA', 'INFLUENC', 'SOCIAL MEDIA', 'IF DIGITAL', 'CRIATIV']],
+  ['Tecnologia/Software',  ['SOFTWARE', 'SISTEMA', 'AUDACES', 'SAAS', 'LICENC', 'TECHNO', 'INFORMATICA', 'TI ', ' TI,', 'DIGITAL']],
+  ['Serviços Gerais',      ['SERVICO', 'SERVICOS', 'PRESTACAO', 'MANUT ', 'DEB AUTOR', 'DIREITO AUTOR', 'ROYALT', 'COPYRIGHT']],
   // Investimentos e transferências — NÃO são despesas operacionais
-  ['Empréstimo/Aporte',    ['EMPRESTIMO', 'APORTE', 'TED APORTE', 'CAPITAL SOCIAL', 'AP CDB', 'APLIC ', 'APLIC.', 'RESGATE', 'INVEST', 'FUND', 'ENVIO TEV', 'TRANSF ', 'TRANSFERENCIA']],
+  ['Empréstimo/Aporte',    ['EMPRESTIMO', 'APORTE', 'TED APORTE', 'CAPITAL SOCIAL', 'AP CDB', 'APLIC ', 'APLIC.', 'RESGATE', 'INVEST', 'FUND', 'ENVIO TEV']],
 ]
 
 function inferirCategoria(desc: string, tipo: 'entrada' | 'saida'): string {
