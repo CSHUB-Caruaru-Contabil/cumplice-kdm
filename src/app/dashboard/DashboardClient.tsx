@@ -71,6 +71,16 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
   const precisaCliente = SECOES_COM_CLIENTE.includes(secao)
 
   const supabase = createClient()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || !clienteAtivo) return
+      supabase.from('usuario_clientes')
+        .select('papel').eq('usuario_id', user.id).eq('papel', 'admin').limit(1)
+        .then(({ data }) => setIsAdmin((data || []).length > 0))
+    })
+  }, [clienteAtivo?.id])
 
   // Recarrega dados do cliente ativo do banco (para refletir edições do Config)
   const refetchCliente = useCallback(async () => {
@@ -134,7 +144,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
             />
           )}
           {secao === 'usuarios'    && <Usuarios {...sectionProps} />}
-          {secao === 'ferramentas' && <Ferramentas {...sectionProps} />}
+          {secao === 'ferramentas' && <Ferramentas {...sectionProps} isAdmin={isAdmin} />}
           {secao === 'busca'       && <BuscaLancamentos {...sectionProps} />}
 
           {/* Seções que precisam de cliente */}

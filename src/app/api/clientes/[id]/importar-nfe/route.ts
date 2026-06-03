@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseNFeXML } from '@/lib/parsers/nfe'
 import { guardCliente } from '@/lib/supabase/auth-guard'
+import { verificarPeriodoAberto } from '@/lib/supabase/periodo-guard'
 
 export async function POST(
   request: NextRequest,
@@ -16,6 +17,10 @@ export async function POST(
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     const periodo = formData.get('periodo') as string
+
+    // Verifica se período está fechado (usa o período de referência da UI)
+    const periodoGuard = await verificarPeriodoAberto(clienteId, periodo)
+    if (!periodoGuard.ok) return periodoGuard.response
 
     // periodo da UI é apenas fallback — a NF usa sua data de emissão real
     const importados: string[] = []

@@ -26,8 +26,9 @@ model Cliente {
   banco_lancamentos BancoLancamento[]
   despesas         Despesa[]
   divergencias     Divergencia[]
-  thresholds       Threshold?
-  contas_bancarias ContaBancaria[]
+  thresholds         Threshold?
+  contas_bancarias   ContaBancaria[]
+  periodos_fechados  PeriodoFechado[]
   usuario_clientes UsuarioCliente[]
 
   @@map("clientes")
@@ -169,6 +170,19 @@ model ContaBancaria {
   cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
 
   @@map("contas_bancarias")
+}
+
+model PeriodoFechado {
+  id          String   @id @default(uuid())
+  cliente_id  String
+  periodo     String   // "YYYY-MM"
+  fechado_por String   // usuario_id
+  fechado_em  DateTime @default(now())
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+
+  @@unique([cliente_id, periodo])
+  @@map("periodos_fechados")
 }
 
 model Threshold {

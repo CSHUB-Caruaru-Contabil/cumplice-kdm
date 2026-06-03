@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { parseOFX } from '@/lib/parsers/ofx'
 import { parseCSV } from '@/lib/parsers/csv'
 import { guardCliente } from '@/lib/supabase/auth-guard'
+import { verificarPeriodoAberto } from '@/lib/supabase/periodo-guard'
 
 export async function POST(
   request: NextRequest,
@@ -21,6 +22,9 @@ export async function POST(
 
     if (!file)    return NextResponse.json({ erro: 'Arquivo não enviado' }, { status: 400 })
     if (!periodo) return NextResponse.json({ erro: 'Período obrigatório' }, { status: 400 })
+
+    const periodoGuard = await verificarPeriodoAberto(clienteId, periodo)
+    if (!periodoGuard.ok) return periodoGuard.response
 
     // Decode respeitando a codificação do arquivo
     let content: string

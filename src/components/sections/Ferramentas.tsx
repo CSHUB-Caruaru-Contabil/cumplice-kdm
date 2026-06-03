@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Btn, Card, CardTitle, ConfirmDelete, Toast, brl } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import MonthPicker from '@/components/MonthPicker'
-import { Wrench, Trash2, RefreshCw, AlertTriangle, CheckCircle2, ArrowRight, Landmark } from 'lucide-react'
+import { Wrench, Trash2, RefreshCw, AlertTriangle, CheckCircle2, ArrowRight, Landmark, Lock, LockOpen, ShieldAlert } from 'lucide-react'
 
-type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
+type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void; isAdmin?: boolean }
 
 type Contagem = { notas_fiscais: number; compras: number; banco_lancamentos: number; despesas: number }
 type Tabela = keyof Contagem
@@ -18,7 +18,7 @@ const TABELAS: { key: Tabela; label: string; cor: string }[] = [
   { key: 'despesas',          label: 'Despesas',             cor: 'text-red-400' },
 ]
 
-export default function Ferramentas({ clienteId, onRecarregar }: Props) {
+export default function Ferramentas({ clienteId, onRecarregar, isAdmin }: Props) {
   const supabase = createClient()
   const [toast, setToast] = useState('')
 
@@ -195,6 +195,8 @@ export default function Ferramentas({ clienteId, onRecarregar }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* ── Fechar Período — só Admin ── */}
+      <FecharPeriodo clienteId={clienteId} isAdmin={!!isAdmin} />
 
       {/* ── Corrigir períodos ── */}
       <Card>
@@ -420,5 +422,140 @@ export default function Ferramentas({ clienteId, onRecarregar }: Props) {
 
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
     </div>
+  )
+}
+
+// ── Subcomponente: fechar/reabrir período ────────────────────────────────────
+function FecharPeriodo({ clienteId, isAdmin }: { clienteId: string; isAdmin: boolean }) {
+  const [periodoSel, setPeriodoSel] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [statusPeriodo, setStatusPeriodo] = useState<{ fechado: boolean; info: { fechado_em: string; fechado_por: string } | null } | null>(null)
+  const [verificando, setVerificando] = useState(false)
+  const [processando, setProcessando] = useState(false)
+  const [confirmando, setConfirmando] = useState<'fechar' | 'reabrir' | null>(null)
+  const [toast, setToast] = useState('')
+
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+  const labelPer = (() => {
+    const [a, m] = periodoSel.split('-'); return `${meses[parseInt(m)-1]}/${a}`
+  })()
+
+  async function verificar(p: string) {
+    setVerificando(true); setStatusPeriodo(null)
+    const res = await fetch(`/api/clientes/${clienteId}/periodo?periodo=${p}`)
+    if (res.ok) setStatusPeriodo(await res.json())
+    setVerificando(false)
+  }
+
+  async function fecharPeriodo() {
+    setProcessando(true)
+    const res = await fetch(`/api/clientes/${clienteId}/periodo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ periodo: periodoSel }),
+    })
+    const result = await res.json()
+    if (!res.ok) { setToast(`Erro: ${result.erro}`); setProcessando(false); return }
+    setToast(`🔒 Período ${labelPer} fechado com sucesso!`)
+    setConfirmando(null); await verificar(periodoSel); setProcessando(false)
+  }
+
+  async function reabrirPeriodo() {
+    setProcessando(true)
+    const res = await fetch(`/api/clientes/${clienteId}/periodo?periodo=${periodoSel}`, { method: 'DELETE' })
+    const result = await res.json()
+    if (!res.ok) { setToast(`Erro: ${result.erro}`); setProcessando(false); return }
+    setToast(`🔓 Período ${labelPer} reaberto!`)
+    setConfirmando(null); await verificar(periodoSel); setProcessando(false)
+  }
+
+  return (
+    <Card>
+      <CardTitle>
+        <span className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-primary" /> Fechar Período
+        </span>
+      </CardTitle>
+
+      {!isAdmin ? (
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-500/10 border border-orange-500/25">
+          <ShieldAlert className="h-5 w-5 text-orange-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-orange-300">Acesso restrito</p>
+            <p className="text-xs text-orange-400/80 mt-0.5">Apenas usuários com papel <strong>Admin</strong> podem fechar períodos.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground mb-4">
+            Após fechar um período, nenhuma importação (NF-e, OFX, CSV) será aceita para aquele mês.
+            O período pode ser reaberto pelo administrador quando necessário.
+          </p>
+
+          <div className="flex items-center gap-3 flex-wrap mb-4">
+            <div className="w-64">
+              <MonthPicker value={periodoSel} onChange={p => { setPeriodoSel(p); setStatusPeriodo(null) }} />
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => verificar(periodoSel)} disabled={verificando}>
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {verificando ? 'Verificando...' : 'Verificar status'}
+            </Button>
+          </div>
+
+          {/* Status do período */}
+          {statusPeriodo && (
+            <div className={`flex items-center gap-3 p-3.5 rounded-lg border mb-4 ${
+              statusPeriodo.fechado
+                ? 'bg-red-500/10 border-red-500/25'
+                : 'bg-green-500/10 border-green-500/25'
+            }`}>
+              {statusPeriodo.fechado
+                ? <Lock className="h-5 w-5 text-red-400 shrink-0" />
+                : <LockOpen className="h-5 w-5 text-green-400 shrink-0" />
+              }
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${statusPeriodo.fechado ? 'text-red-300' : 'text-green-400'}`}>
+                  {statusPeriodo.fechado ? `Período ${labelPer} está FECHADO` : `Período ${labelPer} está ABERTO`}
+                </p>
+                {statusPeriodo.info && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Fechado em {new Date(statusPeriodo.info.fechado_em).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </div>
+              {statusPeriodo.fechado ? (
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs text-green-400 border-green-500/30 hover:bg-green-500/10"
+                  onClick={() => setConfirmando('reabrir')} disabled={processando}>
+                  <LockOpen className="h-3.5 w-3.5" /> Reabrir
+                </Button>
+              ) : (
+                <Button size="sm" className="gap-1.5 text-xs bg-red-500 hover:bg-red-600 text-white"
+                  onClick={() => setConfirmando('fechar')} disabled={processando}>
+                  <Lock className="h-3.5 w-3.5" /> Fechar período
+                </Button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {confirmando === 'fechar' && (
+        <ConfirmDelete
+          msg={`Fechar o período ${labelPer}? Nenhuma importação será aceita após o fechamento. O administrador pode reabrir quando necessário.`}
+          onConfirm={fecharPeriodo}
+          onCancel={() => setConfirmando(null)}
+        />
+      )}
+      {confirmando === 'reabrir' && (
+        <ConfirmDelete
+          msg={`Reabrir o período ${labelPer}? Importações voltarão a ser aceitas para este mês.`}
+          onConfirm={reabrirPeriodo}
+          onCancel={() => setConfirmando(null)}
+        />
+      )}
+      {toast && <Toast msg={toast} onHide={() => setToast('')} />}
+    </Card>
   )
 }
