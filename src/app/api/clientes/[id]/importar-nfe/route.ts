@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { parseNFeXML } from '@/lib/parsers/nfe'
 import { guardCliente } from '@/lib/supabase/auth-guard'
 import { verificarPeriodoAberto } from '@/lib/supabase/periodo-guard'
+import { conciliarPeriodo } from '@/lib/conciliar'
 
 export async function POST(
   request: NextRequest,
@@ -76,17 +77,14 @@ export async function POST(
     }
 
     // ── Conciliação automática para cada período com NFs novas ─────────────
+    // Coleta períodos distintos das NFs importadas
     const periodosImportados = [...new Set(importados.map(s => {
       const m = s.match(/→ alocado em (\d{4}-\d{2})/)
       return m ? m[1] : periodo
     }))]
     for (const p of periodosImportados) {
       try {
-        const baseUrl = request.nextUrl.origin
-        await fetch(`${baseUrl}/api/clientes/${clienteId}/conciliar?periodo=${p}`, {
-          method: 'POST',
-          headers: { cookie: request.headers.get('cookie') || '' },
-        })
+        await conciliarPeriodo(clienteId, p) // chamada direta, sem HTTP interno
       } catch { /* não bloqueia se falhar */ }
     }
 

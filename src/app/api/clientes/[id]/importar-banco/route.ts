@@ -4,6 +4,7 @@ import { parseOFX } from '@/lib/parsers/ofx'
 import { parseCSV } from '@/lib/parsers/csv'
 import { guardCliente } from '@/lib/supabase/auth-guard'
 import { verificarPeriodoAberto } from '@/lib/supabase/periodo-guard'
+import { conciliarPeriodo } from '@/lib/conciliar'
 
 export async function POST(
   request: NextRequest,
@@ -115,15 +116,8 @@ export async function POST(
     const resultadosConcil: Record<string, number> = {}
     for (const p of Object.keys(porPeriodo)) {
       try {
-        const baseUrl = request.nextUrl.origin
-        const res = await fetch(`${baseUrl}/api/clientes/${clienteId}/conciliar?periodo=${p}`, {
-          method: 'POST',
-          headers: { cookie: request.headers.get('cookie') || '' },
-        })
-        if (res.ok) {
-          const r = await res.json()
-          resultadosConcil[p] = r.conciliados || 0
-        }
+        const r = await conciliarPeriodo(clienteId, p) // chamada direta
+        resultadosConcil[p] = r.conciliados
       } catch { /* não bloqueia se falhar */ }
     }
 
