@@ -73,6 +73,7 @@ export default function ContasBancarias({ clienteId, onContasChange }: Props) {
         const { data: nova } = await supabase
           .from('contas_bancarias')
           .insert({
+            id: crypto.randomUUID(),
             cliente_id: clienteId,
             nome,
             banco: bancoDetectado,
@@ -144,6 +145,7 @@ export default function ContasBancarias({ clienteId, onContasChange }: Props) {
       setToast('Conta atualizada!')
     } else {
       const { data: nova, error } = await supabase.from('contas_bancarias').insert({
+        id: crypto.randomUUID(),
         cliente_id: clienteId, nome, banco: editando.banco, tipo: editando.tipo,
         agencia: editando.agencia || null, numero: editando.numero || null,
         principal: editando.principal ?? false, ativo: true,

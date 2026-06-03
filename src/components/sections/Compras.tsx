@@ -51,6 +51,7 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
     if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('compras').insert({
+      id: crypto.randomUUID(),
       cliente_id: clienteId, periodo: data.substring(0, 7), data,
       fornecedor, valor: parseFloat(valor), nf_entrada: nf || null,
       categoria, pagamento, cnpj_fornecedor: cnpjFornecedor || null,
@@ -104,6 +105,7 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
       const lote = nfes.slice(i, i + LOTE)
       await Promise.all(lote.map(async (nfe) => {
         const { error } = await supabase.from('compras').insert({
+          id: crypto.randomUUID(),
           cliente_id: clienteId,
           periodo: nfe.data_emissao.substring(0, 7),
           data: nfe.data_emissao,

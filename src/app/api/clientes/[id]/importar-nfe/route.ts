@@ -17,9 +17,8 @@ export async function POST(
   if (!guard.ok) return guard.response
 
   try {
-    const formData = await request.formData()
-    const files = formData.getAll('files') as File[]
-    const periodo = formData.get('periodo') as string
+    const body = await request.json() as { files: { nome: string; conteudo: string }[]; periodo: string }
+    const { files, periodo } = body
 
     if (!periodo) return NextResponse.json({ erro: 'Período obrigatório' }, { status: 400 })
 
@@ -39,13 +38,14 @@ export async function POST(
       const lote = files.slice(i, i + LOTE)
 
       await Promise.all(lote.map(async (file) => {
-        const content = await file.text()
+        try {
+        const content = file.conteudo
         const nfe = await parseNFeXML(content)
 
         if (nfe.erro) {
           // Arquivos ignorados (consultas, inutilizações) — registra como info, não erro
           if (nfe.erro.startsWith('Arquivo ignorado:')) {
-            console.log(`[importar-nfe] ignorado: ${file.name} — ${nfe.erro}`)
+            console.log(`[importar-nfe] ignorado: ${file.nome} — ${nfe.erro}`)
             return
           }
 
@@ -53,7 +53,7 @@ export async function POST(
           if (nfe.erro === '__evento__') {
             const evento = parseEventoNFe(content)
             if (!evento) {
-              erros.push({ arquivo: file.name, erro: 'Evento NF-e não reconhecido', detalhe: 'O arquivo parece ser um evento mas não foi possível extrair os dados' })
+              erros.push({ arquivo: file.nome, erro: 'Evento NF-e não reconhecido', detalhe: 'O arquivo parece ser um evento mas não foi possível extrair os dados' })
               return
             }
             if (evento.tipo === 'cancelamento' && evento.chave_nfe) {
@@ -70,22 +70,22 @@ export async function POST(
             } else if (evento.tipo === 'carta_correcao') {
               cancelamentos.push(`Carta de Correção para chave ${evento.chave_nfe.substring(0, 10)}... — ${evento.descricao} (sem impacto nos valores)`)
             } else {
-              cancelamentos.push(`Evento ${evento.descricao} recebido para ${file.name} (sem ação necessária)`)
+              cancelamentos.push(`Evento ${evento.descricao} recebido para ${file.nome} (sem ação necessária)`)
             }
             return
           }
 
           erros.push({
-            arquivo: file.name,
+            arquivo: file.nome,
             erro: nfe.erro,
-            detalhe: `Arquivo: ${file.name} — verifique se o XML está correto e não está corrompido`,
+            detalhe: `Arquivo: ${file.nome} — verifique se o XML está correto e não está corrompido`,
           })
           return
         }
 
         const periodoNF = nfe.data_emissao?.substring(0, 7) || periodo
         if (!periodoNF) {
-          erros.push({ arquivo: file.name, erro: 'Data de emissão inválida', detalhe: 'O XML não contém data de emissão legível' })
+          erros.push({ arquivo: file.nome, erro: 'Data de emissão inválida', detalhe: 'O XML não contém data de emissão legível' })
           return
         }
 
@@ -110,7 +110,7 @@ export async function POST(
           if (existente) {
             await prisma.notaFiscal.update({ where: { id: existente.id }, data: dadosNF })
             duplicados.push({
-              arquivo: file.name,
+              arquivo: file.nome,
               numero: nfe.numero ?? '?',
               motivo: 'Atualizada (já existia)',
               detalhe: `NF ${nfe.numero} | Período: ${periodoNF} | Valor: R$ ${nfe.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
@@ -129,7 +129,7 @@ export async function POST(
           if (existente) {
             await prisma.notaFiscal.update({ where: { id: existente.id }, data: dadosNF })
             duplicados.push({
-              arquivo: file.name,
+              arquivo: file.nome,
               numero: nfe.numero,
               motivo: 'Atualizada (já existia)',
               detalhe: `NF ${nfe.numero} | Período: ${periodoNF} | Valor anterior: R$ ${Number(existente.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
@@ -142,6 +142,10 @@ export async function POST(
         const label = nfe.formato === 'nfse' ? 'NFS-e' : 'NF-e'
         const aviso = periodoNF !== periodo ? ` → alocado em ${periodoNF}` : ''
         importados.push(`${label} ${nfe.numero}${aviso} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)
+        } catch (fileErr) {
+          console.error(`[importar-nfe] erro inesperado em "${file.nome}":`, fileErr)
+          erros.push({ arquivo: file.nome, erro: fileErr instanceof Error ? fileErr.message : 'Erro inesperado', detalhe: 'Erro interno ao processar este arquivo' })
+        }
       }))
     }
 

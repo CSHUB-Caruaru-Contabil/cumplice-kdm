@@ -65,6 +65,7 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
     if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('despesas').insert({
+      id: crypto.randomUUID(),
       cliente_id: clienteId, periodo: data.substring(0, 7), data, descricao: desc,
       valor: parseFloat(valor), categoria, documento: doc || null,
       pago_banco: pagoBanco, dedutivel,

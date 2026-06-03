@@ -2,6 +2,7 @@
 // Match por valor (±2%) e janela de datas (±3 dias)
 
 import type { BancoLancamento, Compra, Despesa, Divergencia, NotaFiscal } from './supabase/types'
+import { ehVenda } from './cfop'
 
 export type ResultadoCruzamento = {
   divergencias: Omit<Divergencia, 'id' | 'created_at'>[]
@@ -45,6 +46,9 @@ export function cruzarDados(
   const conciliacoes: ResultadoCruzamento['conciliacoes'] = []
   const notasUsadas = new Set<string>()
 
+  // Apenas NFs com CFOP de venda real (5101, 5102, 6101, 6102, 6107, 6108)
+  const notasConciliaveis = notas.filter(nf => ehVenda(nf.cfop))
+
   // ========================================
   // 1. CRUZAMENTO: Entradas Banco × NFs emitidas
   // ========================================
@@ -58,8 +62,8 @@ export function cruzarDados(
       continue
     }
 
-    // Tenta match automático
-    const match = notas.find(nf => {
+    // Tenta match automático — apenas NFs que geram receita real
+    const match = notasConciliaveis.find(nf => {
       if (notasUsadas.has(nf.id)) return false
       const valorOk = dentroToleranciaPct(lanc.valor, nf.valor, TOLERANCIA_VALOR)
       const dataOk = diffDias(lanc.data, nf.data) <= JANELA_DIAS

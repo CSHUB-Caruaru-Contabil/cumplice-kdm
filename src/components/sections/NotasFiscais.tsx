@@ -53,6 +53,7 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
     if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('notas_fiscais').insert({
+      id: crypto.randomUUID(),
       cliente_id: clienteId, periodo: data.substring(0, 7), data, numero,
       cliente_nf: clienteNF || 'Consumidor Final',
       valor: parseFloat(valor), cfop, recebimento,
@@ -84,10 +85,12 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
 
   async function importarXML(files: File[]) {
     setImportando(true)
-    const formData = new FormData()
-    files.forEach(f => formData.append('files', f))
-    formData.append('periodo', periodo)
-    const res = await fetch(`/api/clientes/${clienteId}/importar-nfe`, { method: 'POST', body: formData })
+    const conteudos = await Promise.all(files.map(async f => ({ nome: f.name, conteudo: await f.text() })))
+    const res = await fetch(`/api/clientes/${clienteId}/importar-nfe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: conteudos, periodo }),
+    })
     const result = await res.json()
 
     // Recarrega direto do banco — sem depender de closure

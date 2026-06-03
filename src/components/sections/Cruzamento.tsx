@@ -57,6 +57,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
     } else {
       // Cria novo registro na tabela divergencias
       await supabase.from('divergencias').insert({
+        id: crypto.randomUUID(),
         cliente_id: clienteId,
         periodo,
         tipo: d.tipo,

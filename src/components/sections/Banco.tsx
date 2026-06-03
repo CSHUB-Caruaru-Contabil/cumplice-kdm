@@ -80,6 +80,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
     if (erroP) { setToast(`Erro: ${erroP}`); return }
     setSalvando(true)
     const { error } = await supabase.from('banco_lancamentos').insert({
+      id: crypto.randomUUID(),
       cliente_id: clienteId, periodo: data.substring(0, 7), data, descricao: desc,
       categoria, tipo, valor: parseFloat(valor),
       nf_vinculada: nfVinc || null, conta: conta || null,
