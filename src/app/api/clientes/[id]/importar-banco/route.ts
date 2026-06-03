@@ -137,6 +137,7 @@ export async function POST(
           valor: l.valor,
           pago_banco: true,
           dedutivel: 'sim',
+          conta_banco: conta, // conta bancária de origem
         },
       }).catch(() => {})
       despesasCriadas++

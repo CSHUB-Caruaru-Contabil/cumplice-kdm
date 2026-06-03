@@ -122,6 +122,7 @@ model Despesa {
   valor      Decimal
   documento       String?
   comprovante_url String?   // URL do arquivo no Supabase Storage
+  conta_banco     String?   // conta bancária de origem (ex: "Itaú", "Caixa Econômica")
   pago_banco Boolean  @default(true)
   dedutivel  String   @default("sim") // sim | parcial | nao
   created_at DateTime @default(now())

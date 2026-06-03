@@ -115,12 +115,17 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
         <CardTitle sub={`Total: ${brl(total)}${semDoc > 0 ? ` · ${brl(semDoc)} sem comprovante ⚠` : ''}`}>
           Despesas do Mês
         </CardTitle>
-        <Table headers={['Data', 'Descrição', 'Categoria', 'Valor', 'Documento', 'Comprovante', 'Status', '']}>
+        <Table headers={['Data', 'Descrição', 'Categoria', 'Banco', 'Valor', 'Documento', 'Comprovante', 'Status', '']}>
           {despesas.map(d => (
             <Tr key={d.id}>
               <Td>{fmtData(d.data)}</Td>
               <Td>{d.descricao}</Td>
               <Td>{d.categoria}</Td>
+              <Td>
+                {(d as any).conta_banco
+                  ? <span className="text-xs bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-foreground whitespace-nowrap">{(d as any).conta_banco}</span>
+                  : d.pago_banco ? <span className="text-xs text-muted-foreground">Banco</span> : <span className="text-muted-foreground text-xs">—</span>}
+              </Td>
               <Td>{brl(d.valor)}</Td>
               <Td mono>{d.documento || <span className="text-muted-foreground text-xs">—</span>}</Td>
               <Td>
