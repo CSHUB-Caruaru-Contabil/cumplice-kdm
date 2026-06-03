@@ -46,8 +46,8 @@ export async function POST(
     const duplicados: { arquivo: string; numero: string; motivo: string; detalhe: string }[] = []
     const cancelamentos: string[] = []
 
-    // ── Processa em lotes de 10 em paralelo ───────────────────────────────
-    const LOTE = 10
+    // ── Processa em lotes de 5 em paralelo (evita timeout no Netlify) ─────
+    const LOTE = 5
     for (let i = 0; i < files.length; i += LOTE) {
       const lote = files.slice(i, i + LOTE)
 
@@ -163,7 +163,7 @@ export async function POST(
       }))
     }
 
-    // Concilia todos os períodos afetados — inclui sempre o período corrente e os períodos reais das NFs
+    // Responde imediatamente — conciliação roda em background para não estourar timeout do Netlify
     const periodosImportados = [...new Set([
       periodo,
       ...importados.flatMap(s => {
@@ -172,7 +172,7 @@ export async function POST(
       }),
     ])]
     for (const p of periodosImportados) {
-      try { await conciliarPeriodo(clienteId, p) } catch { }
+      conciliarPeriodo(clienteId, p).catch(() => {})  // fire-and-forget
     }
 
     return NextResponse.json({ importados, erros, duplicados, cancelamentos })
