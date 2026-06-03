@@ -84,58 +84,56 @@ export async function POST(
           return
         }
 
-        // ── Deduplicação: APENAS por chave de acesso (NF-e) ou número+data+emitente (NFS-e) ──
-        // Não considera duplicata apenas por cliente+valor (podem existir múltiplas NFs iguais)
+        const dadosNF = {
+          cliente_id: clienteId,
+          periodo: periodoNF,
+          data: new Date(nfe.data_emissao),
+          numero: nfe.numero,
+          chave_acesso: nfe.chave_acesso || null,
+          cliente_nf: nfe.razao_destinatario || 'Consumidor Final',
+          cfop: nfe.cfop,
+          valor: nfe.valor_total,
+          conciliada: false,
+        }
+
         if (nfe.chave_acesso) {
-          // NF-e: chave de acesso é única no Brasil — critério definitivo
+          // NF-e: upsert por chave de acesso — reimporta/atualiza se já existir
           const existente = await prisma.notaFiscal.findUnique({
             where: { chave_acesso: nfe.chave_acesso },
-            select: { id: true, numero: true, periodo: true },
+            select: { id: true },
           })
           if (existente) {
+            await prisma.notaFiscal.update({ where: { id: existente.id }, data: dadosNF })
             duplicados.push({
               arquivo: file.name,
               numero: nfe.numero ?? '?',
-              motivo: 'Chave de acesso já importada',
-              detalhe: `Chave: ${nfe.chave_acesso} | Período já registrado: ${existente.periodo}`,
+              motivo: 'Atualizada (já existia)',
+              detalhe: `NF ${nfe.numero} | Período: ${periodoNF} | Valor: R$ ${nfe.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             })
             return
           }
         } else if (nfe.numero) {
-          // NFS-e ou XML sem chave: dedup por número + período + destinatário (não só pelo número)
+          // NFS-e sem chave: dedup por número + período + destinatário
           const existente = await prisma.notaFiscal.findFirst({
             where: {
-              cliente_id: clienteId,
-              numero: nfe.numero,
-              periodo: periodoNF,
-              chave_acesso: null,
-              // Adiciona destinatário ao critério para evitar falsos positivos
+              cliente_id: clienteId, numero: nfe.numero, periodo: periodoNF, chave_acesso: null,
               ...(nfe.razao_destinatario ? { cliente_nf: nfe.razao_destinatario } : {}),
             },
-            select: { id: true, numero: true, periodo: true, valor: true },
+            select: { id: true, valor: true },
           })
           if (existente) {
+            await prisma.notaFiscal.update({ where: { id: existente.id }, data: dadosNF })
             duplicados.push({
               arquivo: file.name,
               numero: nfe.numero,
-              motivo: 'NFS-e com mesmo número, período e destinatário já importada',
-              detalhe: `NF ${nfe.numero} | Período: ${periodoNF} | Valor já registrado: R$ ${Number(existente.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+              motivo: 'Atualizada (já existia)',
+              detalhe: `NF ${nfe.numero} | Período: ${periodoNF} | Valor anterior: R$ ${Number(existente.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             })
             return
           }
         }
 
-        await prisma.notaFiscal.create({
-          data: {
-            cliente_id: clienteId,
-            periodo: periodoNF,
-            data: new Date(nfe.data_emissao),
-            numero: nfe.numero,
-            chave_acesso: nfe.chave_acesso || null,
-            cliente_nf: nfe.razao_destinatario || 'Consumidor Final',
-            cfop: nfe.cfop, valor: nfe.valor_total, conciliada: false,
-          },
-        })
+        await prisma.notaFiscal.create({ data: dadosNF })
         const label = nfe.formato === 'nfse' ? 'NFS-e' : 'NF-e'
         const aviso = periodoNF !== periodo ? ` → alocado em ${periodoNF}` : ''
         importados.push(`${label} ${nfe.numero}${aviso} — R$ ${nfe.valor_total.toLocaleString('pt-BR')}`)

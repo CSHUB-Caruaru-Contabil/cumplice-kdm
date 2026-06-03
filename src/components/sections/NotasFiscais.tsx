@@ -23,6 +23,7 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
   const [excluindo, setExcluindo] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [importando, setImportando] = useState(false)
+  const [relatorioMinimizado, setRelatorioMinimizado] = useState(false)
   const [relatorio, setRelatorio] = useState<{
     importados: string[]
     cancelamentos: string[]
@@ -251,83 +252,102 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
         <ConfirmDelete msg="Excluir esta nota fiscal?" onConfirm={confirmarExclusao} onCancel={() => setExcluindo(null)} />
       )}
 
-      {/* ── Relatório de importação (duplicatas / erros) ────────────────── */}
-      {relatorio && (relatorio.duplicados.length > 0 || relatorio.erros.length > 0) && (
-        <Modal title="Relatório de Importação" onClose={() => setRelatorio(null)}>
-          <div style={{ maxHeight: 480, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── Relatório de importação — painel flutuante minimizável ───────── */}
+      {relatorio && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 50,
+          width: relatorioMinimizado ? 'auto' : 380,
+          background: 'var(--color-card)', border: '1px solid var(--color-border)',
+          borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          overflow: 'hidden',
+        }}>
+          {/* Cabeçalho sempre visível */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', background: 'var(--color-secondary)',
+            cursor: 'pointer', userSelect: 'none',
+          }} onClick={() => setRelatorioMinimizado(m => !m)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600 }}>
+              📋 Relatório de Importação
+              <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--color-muted-foreground)' }}>
+                {[
+                  relatorio.importados.length > 0 && `${relatorio.importados.length} ok`,
+                  relatorio.cancelamentos.length > 0 && `${relatorio.cancelamentos.length} cancel.`,
+                  relatorio.duplicados.length > 0 && `${relatorio.duplicados.length} atualizadas`,
+                  relatorio.erros.length > 0 && `${relatorio.erros.length} erros`,
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={e => { e.stopPropagation(); setRelatorioMinimizado(m => !m) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', fontSize: 14, padding: '0 2px' }}
+                title={relatorioMinimizado ? 'Expandir' : 'Minimizar'}
+              >
+                {relatorioMinimizado ? '▲' : '▼'}
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setRelatorio(null); setRelatorioMinimizado(false) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', fontSize: 14, padding: '0 2px' }}
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
 
-            {relatorio.importados.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-green-400)', marginBottom: 6 }}>
+          {/* Conteúdo expandido */}
+          {!relatorioMinimizado && (
+            <div style={{ maxHeight: 360, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {relatorio.importados.length > 0 && (
+                <p style={{ fontSize: 11, color: 'var(--color-green-400)', margin: 0 }}>
                   ✅ {relatorio.importados.length} NF(s) importada(s) com sucesso
                 </p>
-              </div>
-            )}
+              )}
 
-            {relatorio.cancelamentos.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-blue-400)', marginBottom: 8 }}>
-                  🚫 {relatorio.cancelamentos.length} cancelamento(s) / evento(s) processado(s)
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {relatorio.cancelamentos.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-blue-400)', marginBottom: 6 }}>
+                    🚫 {relatorio.cancelamentos.length} cancelamento(s)
+                  </p>
                   {relatorio.cancelamentos.map((c, i) => (
-                    <div key={i} style={{
-                      background: 'var(--color-secondary)', borderRadius: 6, padding: '8px 12px',
-                      borderLeft: '3px solid var(--color-blue-400)',
-                      fontSize: 11,
-                    }}>
-                      {c}
-                    </div>
+                    <div key={i} style={{ fontSize: 11, padding: '6px 10px', borderLeft: '3px solid var(--color-blue-400)', background: 'var(--color-secondary)', borderRadius: 4, marginBottom: 4 }}>{c}</div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {relatorio.duplicados.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-yellow-400)', marginBottom: 8 }}>
-                  ⚠️ {relatorio.duplicados.length} duplicata(s) ignorada(s)
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {relatorio.duplicados.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-yellow-400)', marginBottom: 6 }}>
+                    ♻️ {relatorio.duplicados.length} atualizada(s)
+                  </p>
                   {relatorio.duplicados.map((d, i) => (
-                    <div key={i} style={{
-                      background: 'var(--color-secondary)', borderRadius: 6, padding: '8px 12px',
-                      borderLeft: '3px solid var(--color-yellow-400)',
-                    }}>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>NF {d.numero}</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-yellow-400)', marginTop: 2 }}>{d.motivo}</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-muted-foreground)', marginTop: 2 }}>{d.detalhe}</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-muted-foreground)', marginTop: 2 }}>Arquivo: {d.arquivo}</div>
+                    <div key={i} style={{ fontSize: 11, padding: '6px 10px', borderLeft: '3px solid var(--color-yellow-400)', background: 'var(--color-secondary)', borderRadius: 4, marginBottom: 4 }}>
+                      <div style={{ fontWeight: 600 }}>NF {d.numero} — {d.motivo}</div>
+                      <div style={{ color: 'var(--color-muted-foreground)', marginTop: 2 }}>{d.detalhe}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {relatorio.erros.length > 0 && (
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-red-400)', marginBottom: 8 }}>
-                  ❌ {relatorio.erros.length} erro(s) ao processar
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {relatorio.erros.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-red-400)', marginBottom: 6 }}>
+                    ❌ {relatorio.erros.length} erro(s)
+                  </p>
                   {relatorio.erros.map((e, i) => (
-                    <div key={i} style={{
-                      background: 'var(--color-secondary)', borderRadius: 6, padding: '8px 12px',
-                      borderLeft: '3px solid var(--color-red-400)',
-                    }}>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>{e.arquivo}</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-red-400)', marginTop: 2 }}>{e.erro}</div>
-                      {e.detalhe && <div style={{ fontSize: 11, color: 'var(--color-muted-foreground)', marginTop: 2 }}>{e.detalhe}</div>}
+                    <div key={i} style={{ fontSize: 11, padding: '6px 10px', borderLeft: '3px solid var(--color-red-400)', background: 'var(--color-secondary)', borderRadius: 4, marginBottom: 4 }}>
+                      <div style={{ fontWeight: 600 }}>{e.arquivo}</div>
+                      <div style={{ color: 'var(--color-red-400)', marginTop: 2 }}>{e.erro}</div>
+                      {e.detalhe && <div style={{ color: 'var(--color-muted-foreground)', marginTop: 2 }}>{e.detalhe}</div>}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <Btn onClick={() => setRelatorio(null)}>Fechar</Btn>
-          </div>
-        </Modal>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {toast && <Toast msg={toast} onHide={() => setToast('')} />}
