@@ -71,9 +71,20 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
   }
 
   async function classificarSaida(id: string, categoria: string) {
-    await supabase.from('banco_lancamentos').update({ categoria }).eq('id', id)
-    setSaidasBanco(prev => prev.map(s => s.id === id ? { ...s, categoria } : s))
-    setToast(`Saída classificada como: ${categoria}`)
+    const saida = saidasBanco.find(s => s.id === id)
+    if (!saida) return
+
+    // Atualiza todos os lançamentos com o mesmo histórico (mesmo cliente, mesma descrição)
+    await supabase.from('banco_lancamentos')
+      .update({ categoria })
+      .eq('cliente_id', clienteId)
+      .eq('tipo', 'saida')
+      .eq('descricao', saida.descricao)
+
+    setSaidasBanco(prev => prev.map(s =>
+      s.descricao === saida.descricao ? { ...s, categoria } : s
+    ))
+    setToast(`Categoria "${categoria}" aplicada em todos os lançamentos com este histórico`)
   }
 
   async function criarDespesaDaBanco(saida: SaidaBanco) {
