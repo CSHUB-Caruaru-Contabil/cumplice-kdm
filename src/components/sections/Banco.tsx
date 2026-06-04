@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { BancoLancamento } from '@/lib/supabase/types'
 import {
@@ -98,9 +98,18 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
       categoria: editando.categoria, tipo: editando.tipo,
       valor: editando.valor, nf_vinculada: editando.nf_vinculada || null,
       conta: editando.conta,
+      observacao_parcial: editando.observacao_parcial || null,
     }).eq('id', editando.id)
     if (error) { setToast(`Erro: ${error.message}`); return }
     setEditando(null); await carregar(); onRecarregar(); setToast('Lançamento atualizado!')
+  }
+
+  async function salvarObservacaoParcial(id: string, obs: string) {
+    await supabase.from('banco_lancamentos')
+      .update({ observacao_parcial: obs || null })
+      .eq('id', id)
+    await carregar()
+    setToast('Observação salva!')
   }
 
   async function confirmarExclusao() {
@@ -394,7 +403,8 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
             </thead>
             <tbody>
           {visiveis.map(b => (
-            <tr key={b.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
+            <React.Fragment key={b.id}>
+            <tr className="border-b border-border hover:bg-secondary/50 transition-colors">
               {/* Data */}
               <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtData(b.data)}</td>
 
@@ -454,6 +464,23 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
                 <RowActions onEdit={() => setEditando({ ...b })} onDelete={() => setExcluindo(b.id)} />
               </td>
             </tr>
+            {/* Linha de observação para parcialmente conciliados */}
+            {b.status === 'parcial' && (
+              <tr className="border-b border-border">
+                <td colSpan={9} className="px-3 pb-2 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-orange-400 font-semibold whitespace-nowrap">Motivo da diferença:</span>
+                    <input
+                      defaultValue={b.observacao_parcial || ''}
+                      onBlur={e => salvarObservacaoParcial(b.id, e.target.value)}
+                      placeholder="Ex: adiantamento, desconto, taxa bancária..."
+                      className="flex-1 h-6 rounded border border-orange-500/30 bg-orange-500/5 text-foreground text-xs px-2 focus:outline-none focus:border-orange-400"
+                    />
+                  </div>
+                </td>
+              </tr>
+            )}
+            </React.Fragment>
           ))}
             </tbody>
           </table>
@@ -492,6 +519,17 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
             <div className="col-span-2">
               <Input label="NF Vinculada" value={editando.nf_vinculada || ''} onChange={e => setEditando({ ...editando, nf_vinculada: e.target.value || null })} placeholder="Nº da NF" />
             </div>
+            {editando.status === 'parcial' && (
+              <div className="col-span-2">
+                <label className="text-[11px] font-bold uppercase tracking-wide text-orange-400 block mb-1">Motivo da diferença (parcial)</label>
+                <input
+                  value={editando.observacao_parcial || ''}
+                  onChange={e => setEditando({ ...editando, observacao_parcial: e.target.value || null })}
+                  placeholder="Ex: adiantamento, desconto, taxa bancária..."
+                  className="w-full h-9 rounded-lg border border-orange-500/30 bg-orange-500/5 text-foreground text-sm px-3 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                />
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 mt-5">
             <Btn variant="ghost" onClick={() => setEditando(null)}>Cancelar</Btn>

@@ -105,6 +105,7 @@ model BancoLancamento {
   status           String   @default("pendente") // ok | pendente | sem_nf | parcial
   conta            String?
   comprovante_url  String?  // URL do comprovante no Supabase Storage
+  observacao_parcial String? // Justificativa para conciliação parcial
   created_at       DateTime @default(now())
 
   cliente      Cliente     @relation(fields: [cliente_id], references: [id], onDelete: Cascade)

@@ -63,6 +63,7 @@ export type BancoLancamento = {
   nota_fiscal_id?: Maybe<string>
   status: 'ok' | 'pendente' | 'sem_nf' | 'parcial'
   conta?: Maybe<string>
+  observacao_parcial?: Maybe<string>
   created_at: string
 }
 
