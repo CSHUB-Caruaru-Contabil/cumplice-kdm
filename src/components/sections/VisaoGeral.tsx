@@ -9,6 +9,23 @@ import { ehVenda, ehRemessa, ehRetorno, ehDevolucao, ehDevolucaoEntrada } from '
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void; cliente: Cliente }
 
+// Busca todas as linhas superando o limite de 1000 do Supabase
+async function fetchTudo(supabase: ReturnType<typeof createClient>, tabela: string, filtros: Record<string, string | boolean>) {
+  const PAGE = 1000
+  let from = 0
+  const tudo: unknown[] = []
+  while (true) {
+    let q = supabase.from(tabela).select('*')
+    for (const [k, v] of Object.entries(filtros)) q = q.eq(k, v)
+    const { data } = await q.range(from, from + PAGE - 1)
+    if (!data || data.length === 0) break
+    tudo.push(...data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return tudo
+}
+
 export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Props) {
   const supabase = createClient()
 
@@ -33,18 +50,18 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
     let cancelado = false
     async function carregar() {
       try {
-        const [{ data: notas }, { data: compras }, { data: despesas }, { data: banco }] = await Promise.all([
-          supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
-          supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
-          supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
-          supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
+        const [notas, compras, despesas, banco] = await Promise.all([
+          fetchTudo(supabase, 'notas_fiscais', { cliente_id: clienteId, periodo, cancelada: false }),
+          fetchTudo(supabase, 'compras',        { cliente_id: clienteId, periodo, cancelada: false }),
+          fetchTudo(supabase, 'despesas',       { cliente_id: clienteId, periodo }),
+          fetchTudo(supabase, 'banco_lancamentos', { cliente_id: clienteId, periodo }),
         ])
         if (cancelado) return
         setDados({
-          notas: (notas || []) as NotaFiscal[],
-          compras: (compras || []).map(r => ({ ...r, status: r.nf_entrada ? 'ok' : 'sem_nf' })) as Compra[],
-          despesas: (despesas || []).map(r => ({ ...r, status: r.documento ? 'ok' : 'sem_doc' })) as Despesa[],
-          banco: (banco || []) as BancoLancamento[],
+          notas: notas as NotaFiscal[],
+          compras: (compras as Compra[]).map(r => ({ ...r, status: r.nf_entrada ? 'ok' : 'sem_nf' })),
+          despesas: (despesas as Despesa[]).map(r => ({ ...r, status: r.documento ? 'ok' : 'sem_doc' })),
+          banco: banco as BancoLancamento[],
         })
       } catch {
         if (!cancelado) setDados({ notas: [], compras: [], despesas: [], banco: [] })
