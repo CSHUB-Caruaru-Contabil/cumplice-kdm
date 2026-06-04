@@ -141,11 +141,17 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
         supabase.from('thresholds').select('*').eq('cliente_id', clienteId).maybeSingle(),
       ])
 
+      // Filtra lançamentos de ajuste — não devem aparecer nos cards de divergência
+      const isAjuste = (s?: string | null) => /ajuste/i.test(s || '')
+
+      const notasFiltradas   = (notas  || []).filter(n => !isAjuste(n.numero) && !isAjuste(n.cliente_nf)) as NotaFiscal[]
+      const comprasFiltradas = (compras || []).filter(c => !isAjuste(c.fornecedor) && !isAjuste(c.categoria) && c.valor > 0) as Compra[]
+
       const r = cruzarDados(
         clienteId, periodo,
         (banco || []) as BancoLancamento[],
-        (notas || []) as NotaFiscal[],
-        (compras || []).map(c => ({ ...c, status: c.nf_entrada ? 'ok' : 'sem_nf' })) as Compra[],
+        notasFiltradas,
+        comprasFiltradas.map(c => ({ ...c, status: c.nf_entrada ? 'ok' : 'sem_nf' })),
         (despesas || []).map(d => ({ ...d, status: d.documento ? 'ok' : 'sem_doc' })) as Despesa[],
         thresh || undefined
       )
