@@ -81,11 +81,11 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
 
   const entradas_banco = banco.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0)
 
-  // Compras brutas (todas as entradas 1xxx/2xxx exceto devoluções de entrada)
-  const compras_brutas       = compras.filter(c => !ehDevolucaoEntrada(c.cfop)).reduce((s, c) => s + c.valor, 0)
-  // Devoluções de venda recebidas (cliente devolveu) — deduzem o total de compras
-  const devolucoes_entrada   = compras.filter(c => ehDevolucaoEntrada(c.cfop)).reduce((s, c) => s + c.valor, 0)
-  const total_compras        = compras_brutas - devolucoes_entrada
+  // Identifica devolução: campo devolucao=true (toggle manual) OU cfop 12xx/22xx (detecção automática)
+  const ehDev = (c: Compra) => !!c.devolucao || ehDevolucaoEntrada(c.cfop)
+  const compras_brutas     = compras.filter(c => !ehDev(c)).reduce((s, c) => s + c.valor, 0)
+  const devolucoes_entrada = compras.filter(c => ehDev(c)).reduce((s, c) => s + c.valor, 0)
+  const total_compras      = compras_brutas - devolucoes_entrada
 
   const total_despesas = despesas.reduce((s, d) => s + d.valor, 0)
 

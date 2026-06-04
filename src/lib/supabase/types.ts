@@ -27,6 +27,7 @@ export type Compra = {
   valor: number
   nf_entrada?: Maybe<string>
   cfop?: Maybe<string>
+  devolucao?: boolean
   pagamento?: Maybe<string>
   status: 'ok' | 'sem_nf'
   created_at: string

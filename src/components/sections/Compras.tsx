@@ -189,8 +189,18 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
 
   const [busca, setBusca] = useState('')
 
-  const total = compras.reduce((s, c) => s + c.valor, 0)
-  const semNF = compras.filter(c => c.status === 'sem_nf').length
+  async function toggleDevolucao(c: Compra) {
+    const novo = !c.devolucao
+    await supabase.from('compras').update({ devolucao: novo }).eq('id', c.id)
+    await carregar()
+    onRecarregar()
+    setToast(novo ? `NF ${c.nf_entrada || c.fornecedor} marcada como devolução` : `NF ${c.nf_entrada || c.fornecedor} revertida para compra`)
+  }
+
+  const totalBruto = compras.reduce((s, c) => s + c.valor, 0)
+  const totalDevolucoes = compras.filter(c => c.devolucao).reduce((s, c) => s + c.valor, 0)
+  const total = totalBruto - totalDevolucoes
+  const semNF = compras.filter(c => c.status === 'sem_nf' && !c.devolucao).length
   const visiveis = busca.trim()
     ? compras.filter(c =>
         c.fornecedor.toLowerCase().includes(busca.toLowerCase()) ||
@@ -235,7 +245,12 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
       </Card>
 
       <Card>
-        <CardTitle sub={`Total: ${brl(total)} · ${compras.length} lançamentos${semNF > 0 ? ` · ${semNF} sem NF ⚠` : ''}`}>
+        <CardTitle sub={
+          `Total líquido: ${brl(total)}` +
+          (totalDevolucoes > 0 ? ` (bruto ${brl(totalBruto)} − dev. ${brl(totalDevolucoes)})` : '') +
+          ` · ${compras.length} lançamentos` +
+          (semNF > 0 ? ` · ${semNF} sem NF ⚠` : '')
+        }>
           Compras do Mês
         </CardTitle>
         {/* Barra de busca */}
@@ -244,16 +259,33 @@ export default function Compras({ clienteId, periodo, refresh, onRecarregar }: P
           <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por fornecedor ou número da NF..."
             className="w-full h-8 rounded-md border border-border bg-secondary text-foreground text-xs pl-8 pr-3 focus:outline-none focus:ring-1 focus:ring-ring" />
         </div>
-        <Table headers={['Data', 'Fornecedor', 'Categoria', 'Valor', 'NF Entrada', 'Pagamento', 'Status', '']}>
+        <Table headers={['Data', 'Fornecedor', 'Categoria', 'Valor', 'NF Entrada', 'Pagamento', 'Tipo', '']}>
           {visiveis.map(c => (
             <Tr key={c.id}>
               <Td>{fmtData(c.data)}</Td>
               <Td>{c.fornecedor}</Td>
               <Td>{c.categoria}</Td>
-              <Td>{brl(c.valor)}</Td>
+              <Td>
+                <span style={c.devolucao ? { color: 'var(--color-red-400)', textDecoration: 'line-through' } : undefined}>
+                  {brl(c.valor)}
+                </span>
+                {c.devolucao && <span className="text-[10px] text-red-400 block">−deduz</span>}
+              </Td>
               <Td mono>{c.nf_entrada || <span style={{ color: 'var(--red)' }}>Sem NF ⚠</span>}</Td>
               <Td>{c.pagamento}</Td>
-              <Td><Badge variant={c.status === 'ok' ? 'ok' : 'err'}>{c.status === 'ok' ? '✓ OK' : '⚠ Sem NF'}</Badge></Td>
+              <Td>
+                <button
+                  onClick={() => toggleDevolucao(c)}
+                  title={c.devolucao ? 'Clique para reverter para Compra' : 'Clique para marcar como Devolução'}
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                    c.devolucao
+                      ? 'bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30'
+                      : 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30'
+                  }`}
+                >
+                  {c.devolucao ? '↩ Devolução' : '✓ Compra'}
+                </button>
+              </Td>
               <Td><RowActions onEdit={() => setEditando({ ...c })} onDelete={() => setExcluindo(c.id)} /></Td>
             </Tr>
           ))}

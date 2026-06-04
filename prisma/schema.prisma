@@ -56,6 +56,7 @@ model Compra {
   valor            Decimal
   nf_entrada       String?
   cfop             String?
+  devolucao        Boolean  @default(false)
   pagamento        String?
   cancelada        Boolean  @default(false)
   created_at       DateTime @default(now())
