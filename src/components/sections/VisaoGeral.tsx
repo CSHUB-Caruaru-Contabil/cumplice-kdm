@@ -195,7 +195,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
           delta={divergencia_banco_nf > 0 ? `⚠ ${brlC(divergencia_banco_nf)} sem NF` : '✓ Conciliado'}
           deltaType={divergencia_banco_nf > 0 ? 'warn' : 'up'} topColor="var(--green)" />
         <KpiCard
-          label={usando_sim ? 'CMV (simulação)' : 'Compras Líquidas'}
+          label={usando_sim ? 'Compras (c/ CMV simulado)' : 'Compras Líquidas'}
           value={usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : brlC(total_compras)}
           delta={usando_sim && cmv_simulado !== null
             ? `Est.ini ${brlC(estoqueIni)} · Est.fin ${brlC(estoqueFin)}`
