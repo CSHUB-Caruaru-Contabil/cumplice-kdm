@@ -34,10 +34,10 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
     async function carregar() {
       try {
         const [{ data: notas }, { data: compras }, { data: despesas }, { data: banco }] = await Promise.all([
-          supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
-          supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false),
-          supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo),
-          supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo),
+          supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
+          supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
+          supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
+          supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
         ])
         if (cancelado) return
         setDados({

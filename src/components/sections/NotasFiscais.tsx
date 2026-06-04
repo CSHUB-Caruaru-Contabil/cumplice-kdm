@@ -42,7 +42,7 @@ export default function NotasFiscais({ clienteId, periodo, refresh, onRecarregar
 
   const carregar = useCallback(async () => {
     const { data: rows } = await supabase.from('notas_fiscais').select('*')
-      .eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).order('data', { ascending: false })
+      .eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).order('data', { ascending: false }).limit(50000)
     setNotas((rows || []) as NotaFiscal[])
   }, [clienteId, periodo])
 

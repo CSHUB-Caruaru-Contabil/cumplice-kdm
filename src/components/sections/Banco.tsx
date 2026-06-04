@@ -45,7 +45,7 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
     const { data: rows } = await supabase
       .from('banco_lancamentos').select('*')
       .eq('cliente_id', clienteId).eq('periodo', periodo)
-      .order('data', { ascending: false })
+      .order('data', { ascending: false }).limit(50000)
     setLancamentos((rows || []) as BancoLancamento[])
   }, [clienteId, periodo])
 

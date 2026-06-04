@@ -32,7 +32,7 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
 
   const carregar = useCallback(async () => {
     const { data: rows } = await supabase.from('despesas').select('*')
-      .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false })
+      .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false }).limit(50000)
     // status é coluna gerada que não existe após prisma db push — deriva do documento
     const comStatus = (rows || []).map(r => ({
       ...r,
