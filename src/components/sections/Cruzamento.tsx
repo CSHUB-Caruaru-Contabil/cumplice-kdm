@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cruzarDados } from '@/lib/crossref'
-import type { BancoLancamento, Compra, Despesa, NotaFiscal } from '@/lib/supabase/types'
+import type { BancoLancamento, Compra, Despesa, DocumentoSped, NotaFiscal } from '@/lib/supabase/types'
 import { AlertBar, Badge, Btn, Card, CardTitle, KpiCard, Modal, Table, Td, Toast, Tr, brl, fmtData } from '@/components/ui'
 import { Button } from '@/components/ui/button'
 import { GitMerge, MessageSquare, CheckCircle2 } from 'lucide-react'
@@ -133,12 +133,13 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
 
   const carregar = useCallback(async () => {
     try {
-      const [{ data: notas }, { data: compras }, { data: despesas }, { data: banco }, { data: thresh }] = await Promise.all([
+      const [{ data: notas }, { data: compras }, { data: despesas }, { data: banco }, { data: thresh }, { data: sped }] = await Promise.all([
         supabase.from('notas_fiscais').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
         supabase.from('compras').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelada', false).limit(50000),
         supabase.from('despesas').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
         supabase.from('banco_lancamentos').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).limit(50000),
         supabase.from('thresholds').select('*').eq('cliente_id', clienteId).maybeSingle(),
+        supabase.from('documentos_sped').select('*').eq('cliente_id', clienteId).eq('periodo', periodo).eq('cancelado', false).limit(50000),
       ])
 
       // Filtra lançamentos de ajuste — não devem aparecer nos cards de divergência
@@ -153,7 +154,8 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
         notasFiltradas,
         comprasFiltradas.map(c => ({ ...c, status: c.nf_entrada ? 'ok' : 'sem_nf' })),
         (despesas || []).map(d => ({ ...d, status: d.documento ? 'ok' : 'sem_doc' })) as Despesa[],
-        thresh || undefined
+        thresh || undefined,
+        (sped || []) as DocumentoSped[],
       )
       setResultado(r)
     } catch {
@@ -173,6 +175,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
   const recNaoDeclarada = divergencias.filter(d => d.tipo === 'receita_nao_declarada' && d.severidade === 'alto')
   const comprasSemNF = divergencias.filter(d => d.tipo === 'compra_sem_nf')
   const despSemDoc = divergencias.filter(d => d.tipo === 'despesa_sem_comprovante')
+  const pagSemNfSped = divergencias.filter(d => d.tipo === 'pagamento_sem_nf_sped')
   const totalDiverg = divergencias.filter(d => !d.resolvida).length
 
   return (
@@ -197,6 +200,8 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
         <KpiCard label="Entradas s/ NF" value={brl(estatisticas.valor_receita_nao_declarada)}
           delta="Receita não declarada" deltaType="down" topColor="var(--red)" />
+        <KpiCard label="Pagamentos s/ NF SPED" value={brl(estatisticas.valor_pagamentos_sem_nf_sped)}
+          delta="Saída bancária sem NF de compra" deltaType="warn" topColor="var(--orange)" />
         <KpiCard label="Compras s/ NF Entrada" value={brl(estatisticas.valor_compras_sem_nf)}
           delta="Crédito fiscal perdido" deltaType="warn" topColor="var(--orange)" />
         <KpiCard label="Despesas s/ Comprovante" value={brl(estatisticas.valor_despesas_sem_doc)}
@@ -244,6 +249,30 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
                 <Td>{d.descricao}</Td>
                 <Td><span style={{ color: 'var(--orange)', fontWeight: 700 }}>{brl(d.valor || 0)}</span></Td>
                 <Td><Badge variant="warn">{d.severidade.toUpperCase()}</Badge></Td>
+                <Td>
+                  <BtnOrientar div={d} orientacoesSalvas={orientacoesSalvas} onOrientar={abrirOrientacao} />
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        </Card>
+      )}
+
+      {/* Pagamentos sem NF no SPED */}
+      {pagSemNfSped.length > 0 && (
+        <Card style={{ marginBottom: 18 }}>
+          <CardTitle sub={<span style={{ background: 'rgba(249,115,22,0.15)', color: '#fdba74', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>SPED</span>}>
+            📤 Pagamentos Bancários sem NF de Compra no SPED
+          </CardTitle>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            Saídas bancárias sem nota fiscal de entrada correspondente no SPED. Pode indicar compra não escriturada ou pagamento de despesa não classificada.
+          </p>
+          <Table headers={['Descrição', 'Valor', 'Severidade', 'Ação']}>
+            {pagSemNfSped.map(d => (
+              <Tr key={d.banco_lancamento_id || d.descricao}>
+                <Td>{d.descricao}</Td>
+                <Td><span style={{ color: 'var(--orange)', fontWeight: 700 }}>{brl(d.valor || 0)}</span></Td>
+                <Td><Badge variant={d.severidade === 'alto' ? 'err' : 'warn'}>{d.severidade.toUpperCase()}</Badge></Td>
                 <Td>
                   <BtnOrientar div={d} orientacoesSalvas={orientacoesSalvas} onOrientar={abrirOrientacao} />
                 </Td>

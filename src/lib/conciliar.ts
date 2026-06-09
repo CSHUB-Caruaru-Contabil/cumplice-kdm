@@ -4,12 +4,13 @@ import { cruzarDados } from '@/lib/crossref'
 import type { BancoLancamento, Compra, Despesa, NotaFiscal } from './supabase/types'
 
 export async function conciliarPeriodo(clienteId: string, periodo: string) {
-  const [notas, compras, despesas, banco, thresh] = await Promise.all([
+  const [notas, compras, despesas, banco, thresh, spedDocs] = await Promise.all([
     prisma.notaFiscal.findMany({ where: { cliente_id: clienteId, periodo, cancelada: false } }),
     prisma.compra.findMany({ where: { cliente_id: clienteId, periodo, cancelada: false } }),
     prisma.despesa.findMany({ where: { cliente_id: clienteId, periodo } }),
     prisma.bancoLancamento.findMany({ where: { cliente_id: clienteId, periodo } }),
     prisma.threshold.findUnique({ where: { cliente_id: clienteId } }),
+    prisma.documentoSped.findMany({ where: { cliente_id: clienteId, periodo, cancelado: false } }),
   ])
 
   const fmt = (d: Date) => d.toISOString().substring(0, 10)
@@ -19,10 +20,11 @@ export async function conciliarPeriodo(clienteId: string, periodo: string) {
   const adaptCompras = compras.map(r => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), status: r.nf_entrada ? 'ok' as const : 'sem_nf' as const })) as Compra[]
   const adaptDespesas = despesas.map(r => ({ ...r, valor: n(r.valor), data: fmt(r.data),   created_at: r.created_at.toISOString(), status: r.documento ? 'ok' as const : 'sem_doc' as const, pago_banco: r.pago_banco ?? true, dedutivel: (r.dedutivel ?? 'sim') as 'sim' | 'parcial' | 'nao' })) as Despesa[]
   const adaptBanco   = banco.map(r   => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), tipo: r.tipo as 'entrada' | 'saida', status: r.status as 'ok' | 'pendente' | 'sem_nf' | 'parcial', categoria: r.categoria ?? undefined, nf_vinculada: r.nf_vinculada ?? undefined, nota_fiscal_id: r.nota_fiscal_id ?? undefined, conta: r.conta ?? undefined })) as BancoLancamento[]
+  const adaptSped    = spedDocs.map(r => ({ ...r, valor_total: n(r.valor_total), data_emissao: fmt(r.data_emissao), data_entrada_saida: r.data_entrada_saida ? fmt(r.data_entrada_saida) : null, created_at: r.created_at.toISOString(), tipo: r.tipo as 'entrada' | 'saida', emissao: r.emissao as 'propria' | 'terceiros' }))
 
   const threshAdapt = thresh ? { divergencia_banco_nf: n(thresh.divergencia_banco_nf), compra_sem_nf: n(thresh.compra_sem_nf), despesa_sem_doc: n(thresh.despesa_sem_doc) } : undefined
 
-  const resultado = cruzarDados(clienteId, periodo, adaptBanco, adaptNotas, adaptCompras, adaptDespesas, threshAdapt)
+  const resultado = cruzarDados(clienteId, periodo, adaptBanco, adaptNotas, adaptCompras, adaptDespesas, threshAdapt, adaptSped)
 
   // Persiste conciliações encontradas
   let conciliados = 0

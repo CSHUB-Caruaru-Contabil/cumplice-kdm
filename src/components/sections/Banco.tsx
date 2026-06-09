@@ -12,6 +12,7 @@ import { Upload, Plus, Landmark } from 'lucide-react'
 import ContasBancarias from '@/components/ContasBancarias'
 import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 import UploadComprovante from '@/components/UploadComprovante'
+import UploadComprovanteEmLote from '@/components/UploadComprovanteEmLote'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -323,6 +324,15 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
           )}
         </div>
       </Card>
+
+      {/* Upload em lote de comprovantes */}
+      <div className="mb-4">
+        <UploadComprovanteEmLote
+          clienteId={clienteId}
+          lancamentos={lancamentos}
+          onConcluido={carregar}
+        />
+      </div>
 
       {/* Filtro + resumo por banco — dropdown */}
       {lancamentos.length > 0 && (

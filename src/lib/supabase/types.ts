@@ -108,7 +108,7 @@ export type Divergencia = {
   id: string
   cliente_id: string
   periodo: string
-  tipo: 'receita_nao_declarada' | 'compra_sem_nf' | 'despesa_sem_comprovante'
+  tipo: 'receita_nao_declarada' | 'compra_sem_nf' | 'despesa_sem_comprovante' | 'pagamento_sem_nf_sped'
   severidade: 'alto' | 'medio' | 'baixo'
   valor?: Maybe<number>
   descricao?: Maybe<string>

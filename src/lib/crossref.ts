@@ -1,12 +1,14 @@
 // Motor de cruzamento NF × Banco
 // Match por valor (±2%) e janela de datas (±3 dias)
+// Cobre: entrada bancária × NF emitida (venda) e saída bancária × NF entrada SPED (compra)
 
-import type { BancoLancamento, Compra, Despesa, Divergencia, NotaFiscal } from './supabase/types'
+import type { BancoLancamento, Compra, Despesa, Divergencia, DocumentoSped, NotaFiscal } from './supabase/types'
 import { ehVenda } from './cfop'
 
 export type ResultadoCruzamento = {
   divergencias: Omit<Divergencia, 'id' | 'created_at'>[]
   conciliacoes: { banco_id: string; nf_id: string; diferenca: number }[]
+  conciliacoesSped: { banco_id: string; sped_id: string; diferenca: number }[]
   estatisticas: {
     total_lancamentos_banco: number
     conciliados: number
@@ -15,6 +17,9 @@ export type ResultadoCruzamento = {
     valor_receita_nao_declarada: number
     valor_compras_sem_nf: number
     valor_despesas_sem_doc: number
+    // SPED
+    saidas_banco_conciliadas_sped: number
+    valor_pagamentos_sem_nf_sped: number
   }
 }
 
@@ -33,6 +38,9 @@ function dentroToleranciaPct(v1: number, v2: number, tolerancia: number): boolea
   return Math.abs(v1 - v2) / maior <= tolerancia
 }
 
+// CFOPs de compra que geram saída bancária (pagamento ao fornecedor)
+const CFOPS_COMPRA_SPED = new Set(['1101','2101','1102','2102','1124','2124'])
+
 export function cruzarDados(
   clienteId: string,
   periodo: string,
@@ -40,17 +48,25 @@ export function cruzarDados(
   notas: NotaFiscal[],
   compras: Compra[],
   despesas: Despesa[],
-  thresholds = { divergencia_banco_nf: 500, compra_sem_nf: 200, despesa_sem_doc: 300 }
+  thresholds = { divergencia_banco_nf: 500, compra_sem_nf: 200, despesa_sem_doc: 300 },
+  spedDocs: DocumentoSped[] = [],
 ): ResultadoCruzamento {
   const divergencias: Omit<Divergencia, 'id' | 'created_at'>[] = []
   const conciliacoes: ResultadoCruzamento['conciliacoes'] = []
+  const conciliacoesSped: ResultadoCruzamento['conciliacoesSped'] = []
   const notasUsadas = new Set<string>()
+  const spedUsados = new Set<string>()
 
   // Apenas NFs com CFOP de venda real (5101, 5102, 6101, 6102, 6107, 6108)
   const notasConciliaveis = notas.filter(nf => ehVenda(nf.cfop))
 
+  // Docs SPED de compra (entradas com CFOPs de compra de insumo)
+  const spedCompras = spedDocs.filter(d =>
+    d.tipo === 'entrada' && !d.cancelado && CFOPS_COMPRA_SPED.has(d.cfop)
+  )
+
   // ========================================
-  // 1. CRUZAMENTO: Entradas Banco × NFs emitidas
+  // 1. CRUZAMENTO: Entradas Banco × NFs emitidas (vendas)
   // ========================================
   for (const lanc of bancosEntrada) {
     if (lanc.tipo !== 'entrada' || lanc.valor === 0) continue
@@ -75,67 +91,81 @@ export function cruzarDados(
       const diferenca = Math.abs(lanc.valor - match.valor)
       conciliacoes.push({ banco_id: lanc.id, nf_id: match.id, diferenca })
 
-      // Divergência parcial (valores não iguais mas dentro da tolerância)
       if (diferenca > 0) {
         divergencias.push({
-          cliente_id: clienteId,
-          periodo,
-          tipo: 'receita_nao_declarada',
-          severidade: 'baixo',
+          cliente_id: clienteId, periodo,
+          tipo: 'receita_nao_declarada', severidade: 'baixo',
           valor: diferenca,
           descricao: `Divergência parcial: Banco R$ ${lanc.valor.toLocaleString('pt-BR')} × NF ${match.numero} R$ ${match.valor.toLocaleString('pt-BR')} — diferença R$ ${diferenca.toLocaleString('pt-BR')}`,
-          banco_lancamento_id: lanc.id,
-          nota_fiscal_id: match.id,
-          resolvida: false,
+          banco_lancamento_id: lanc.id, nota_fiscal_id: match.id, resolvida: false,
         })
       }
     } else if (lanc.valor >= thresholds.divergencia_banco_nf) {
-      // Entrada bancária sem NF correspondente
       divergencias.push({
-        cliente_id: clienteId,
-        periodo,
-        tipo: 'receita_nao_declarada',
-        severidade: 'alto',
+        cliente_id: clienteId, periodo,
+        tipo: 'receita_nao_declarada', severidade: 'alto',
         valor: lanc.valor,
         descricao: `Entrada bancária sem NF emitida: ${lanc.descricao} — R$ ${lanc.valor.toLocaleString('pt-BR')} em ${lanc.data}`,
-        banco_lancamento_id: lanc.id,
-        resolvida: false,
+        banco_lancamento_id: lanc.id, resolvida: false,
       })
     }
   }
 
   // ========================================
-  // 2. COMPRAS SEM NF DE ENTRADA
+  // 2. CRUZAMENTO: Saídas Banco × NFs de compra no SPED
+  // ========================================
+  const saidas = bancosEntrada.filter(b => b.tipo === 'saida' && b.valor > 0)
+
+  for (const lanc of saidas) {
+    const match = spedCompras.find(doc => {
+      if (spedUsados.has(doc.id)) return false
+      const valorOk = dentroToleranciaPct(lanc.valor, doc.valor_total, TOLERANCIA_VALOR)
+      const dataOk = diffDias(lanc.data, doc.data_emissao) <= JANELA_DIAS
+      return valorOk && dataOk
+    })
+
+    if (match) {
+      spedUsados.add(match.id)
+      const diferenca = Math.abs(lanc.valor - match.valor_total)
+      conciliacoesSped.push({ banco_id: lanc.id, sped_id: match.id, diferenca })
+    } else if (lanc.valor >= thresholds.divergencia_banco_nf) {
+      // Saída bancária sem NF de entrada no SPED — pode indicar compra não escriturada
+      divergencias.push({
+        cliente_id: clienteId, periodo,
+        tipo: 'pagamento_sem_nf_sped', severidade: lanc.valor >= 2000 ? 'alto' : 'medio',
+        valor: lanc.valor,
+        descricao: `Pagamento bancário sem NF de compra no SPED: ${lanc.descricao} — R$ ${lanc.valor.toLocaleString('pt-BR')} em ${lanc.data}`,
+        banco_lancamento_id: lanc.id, resolvida: false,
+      })
+    }
+  }
+
+  // ========================================
+  // 3. COMPRAS SEM NF DE ENTRADA
   // ========================================
   for (const compra of compras) {
     if (compra.status === 'sem_nf' && compra.valor >= thresholds.compra_sem_nf) {
       divergencias.push({
-        cliente_id: clienteId,
-        periodo,
-        tipo: 'compra_sem_nf',
-        severidade: compra.valor >= 1000 ? 'alto' : 'medio',
+        cliente_id: clienteId, periodo,
+        tipo: 'compra_sem_nf', severidade: compra.valor >= 1000 ? 'alto' : 'medio',
         valor: compra.valor,
         descricao: `Compra sem NF de entrada: ${compra.fornecedor} — R$ ${compra.valor.toLocaleString('pt-BR')} em ${compra.data}`,
-        compra_id: compra.id,
-        resolvida: false,
+        compra_id: compra.id, resolvida: false,
       })
     }
   }
 
   // ========================================
-  // 3. DESPESAS SEM COMPROVANTE
+  // 4. DESPESAS SEM COMPROVANTE
   // ========================================
   for (const desp of despesas) {
     if (desp.status === 'sem_doc' && desp.valor >= thresholds.despesa_sem_doc) {
       divergencias.push({
-        cliente_id: clienteId,
-        periodo,
-        tipo: 'despesa_sem_comprovante',
-        severidade: 'medio',
+        cliente_id: clienteId, periodo,
+        tipo: 'despesa_sem_comprovante', severidade: 'medio',
         valor: desp.valor,
         descricao: `Despesa sem comprovante fiscal: ${desp.descricao} — R$ ${desp.valor.toLocaleString('pt-BR')} em ${desp.data}`,
-        despesa_id: desp.id,
-        resolvida: false,
+        despesa_id: desp.id, resolvida: false,
       })
     }
   }
@@ -159,9 +189,14 @@ export function cruzarDados(
     .filter(d => d.status === 'sem_doc')
     .reduce((s, d) => s + d.valor, 0)
 
+  const valorPagSemNfSped = divergencias
+    .filter(d => d.tipo === 'pagamento_sem_nf_sped')
+    .reduce((s, d) => s + (d.valor || 0), 0)
+
   return {
     divergencias,
     conciliacoes,
+    conciliacoesSped,
     estatisticas: {
       total_lancamentos_banco: entradas.length,
       conciliados: conciliadosCount,
@@ -170,6 +205,8 @@ export function cruzarDados(
       valor_receita_nao_declarada: valorReceitaNaoDeclarada,
       valor_compras_sem_nf: valorComprasSemNF,
       valor_despesas_sem_doc: valorDespSemDoc,
+      saidas_banco_conciliadas_sped: conciliacoesSped.length,
+      valor_pagamentos_sem_nf_sped: valorPagSemNfSped,
     },
   }
 }
