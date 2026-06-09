@@ -219,7 +219,7 @@ export default function Sped({ clienteId, periodo, refresh, onRecarregar }: Prop
         )}
       </Card>
 
-      <Toast msg={toast} onHide={() => setToast('')} />
+      {toast && <Toast msg={toast} onHide={() => setToast('')} />}
     </div>
   )
 }
