@@ -77,7 +77,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
   }, [clienteId, periodo, refresh])
 
   if (carregando || !dados) {
-    return <div style={{ color: 'var(--muted)', padding: 40, textAlign: 'center' }}>Carregando...</div>
+    return <div style={{ color: 'var(--muted-foreground)', padding: 40, textAlign: 'center' }}>Carregando...</div>
   }
 
   const { notas, compras, despesas, banco, sped } = dados
@@ -315,7 +315,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
               }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{a.msg}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{a.meta}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>{a.meta}</div>
               </div>
               <Tag variant={a.tipo === 'red' ? 'red' : 'orange'}>{a.tag}</Tag>
             </div>
@@ -332,11 +332,11 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
           )}
 
           <div key="fat" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>Receita Bruta (NF)</span>
+            <span style={{ color: 'var(--muted-foreground)' }}>Receita Bruta (NF)</span>
             <span style={{ fontWeight: 700, color: 'var(--green)' }}>{brlC(faturamento_nf)}</span>
           </div>
           <div key="cmv" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>
+            <span style={{ color: 'var(--muted-foreground)' }}>
               {usando_sim ? '(−) CMV (Est.Ini + Compras Líq. − Est.Fin)' : '(−) Compras Líquidas'}
               {devolucoes_entrada > 0 && !usando_sim && (
                 <span style={{ fontSize: 10, color: 'var(--red)', marginLeft: 6 }}>
@@ -344,33 +344,33 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
                 </span>
               )}
             </span>
-            <span style={{ fontWeight: 700, color: usando_sim ? undefined : 'var(--muted)' }}>
-              {usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>— informe estoque</span>}
+            <span style={{ fontWeight: 700, color: usando_sim ? undefined : 'var(--muted-foreground)' }}>
+              {usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : <span style={{ fontStyle: 'italic', color: 'var(--muted-foreground)' }}>— informe estoque</span>}
             </span>
           </div>
           <div key="lb" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>(=) Lucro Bruto</span>
+            <span style={{ color: 'var(--muted-foreground)' }}>(=) Lucro Bruto</span>
             <span style={{ fontWeight: 700, color: 'var(--accent2)' }}>
-              {lucro_bruto !== null ? brlC(lucro_bruto) : <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>—</span>}
+              {lucro_bruto !== null ? brlC(lucro_bruto) : <span style={{ fontStyle: 'italic', color: 'var(--muted-foreground)' }}>—</span>}
             </span>
           </div>
           <div key="desp" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>(−) Despesas Operacionais</span>
+            <span style={{ color: 'var(--muted-foreground)' }}>(−) Despesas Operacionais</span>
             <span style={{ fontWeight: 700 }}>{brlC(total_despesas)}</span>
           </div>
           <div key="imp" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-            <span style={{ color: 'var(--muted)' }}>{`(−) Impostos (${ehPresumido ? 'Presumido' : ehReal ? 'Lucro Real' : 'Simples'})`}</span>
+            <span style={{ color: 'var(--muted-foreground)' }}>{`(−) Impostos (${ehPresumido ? 'Presumido' : ehReal ? 'Lucro Real' : 'Simples'})`}</span>
             <span style={{ fontWeight: 700 }}>{brlC(imposto)}</span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0 0', borderTop: '2px solid var(--accent)', marginTop: 4 }}>
             <span style={{ fontWeight: 700 }}>Resultado Líquido Estimado</span>
-            <span style={{ fontWeight: 700, fontSize: 16, color: resultado_liq !== null ? (resultado_liq >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--muted)' }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: resultado_liq !== null ? (resultado_liq >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--muted-foreground)' }}>
               {resultado_liq !== null ? brlC(resultado_liq) : <span style={{ fontStyle: 'italic', fontSize: 13 }}>— informe estoque</span>}
             </span>
           </div>
 
-          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)', background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted-foreground)', background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
             {faturamento_nf > 0 && margem !== null
               ? <>📌 Margem líquida: <strong style={{ color: 'var(--text)' }}>{margem}%</strong>
                   {parseFloat(margem) < 8 && ' — Abaixo do benchmark do setor (8–12%).'}
@@ -389,13 +389,13 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
 function CruzCol({ titulo, valor, sub, color, warn }: { titulo: string; valor: string; sub: string; color: string; warn?: string }) {
   return (
     <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: 12 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8, textAlign: 'center' }}>{titulo}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: 8, textAlign: 'center' }}>{titulo}</div>
       <div style={{ fontSize: 17, fontWeight: 700, textAlign: 'center', color, marginBottom: 4 }}>{valor}</div>
-      <div style={{ fontSize: 11, color: warn ? 'var(--red)' : 'var(--muted)', textAlign: 'center', fontWeight: warn ? 700 : 400 }}>{warn || sub}</div>
+      <div style={{ fontSize: 11, color: warn ? 'var(--red)' : 'var(--muted-foreground)', textAlign: 'center', fontWeight: warn ? 700 : 400 }}>{warn || sub}</div>
     </div>
   )
 }
 
 function Arrow() {
-  return <div style={{ textAlign: 'center', fontSize: 18, color: 'var(--muted)' }}>→</div>
+  return <div style={{ textAlign: 'center', fontSize: 18, color: 'var(--muted-foreground)' }}>→</div>
 }

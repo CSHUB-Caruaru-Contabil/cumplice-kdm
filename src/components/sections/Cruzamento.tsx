@@ -273,7 +273,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
   useEffect(() => { carregar(); carregarOrientacoes() }, [carregar, refresh])
 
   if (carregando || !resultado) {
-    return <div style={{ color: 'var(--muted)', padding: 40, textAlign: 'center' }}>Processando cruzamento...</div>
+    return <div style={{ color: 'var(--muted-foreground)', padding: 40, textAlign: 'center' }}>Processando cruzamento...</div>
   }
 
   const { divergencias, estatisticas } = resultado
@@ -315,7 +315,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
       {recNaoDeclarada.length > 0 && (
         <Card style={{ marginBottom: 18 }}>
           <CardTitle sub={<Badge variant="err">RISCO ALTO</Badge>}>🚨 Entradas Bancárias sem NF Emitida</CardTitle>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 12 }}>
             Entradas na conta sem nota fiscal de venda correspondente. Possível omissão de receita.
           </p>
           <Table headers={['Descrição', 'Valor', 'Severidade', 'Resolução']}>
@@ -335,7 +335,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
       {comprasSemNF.length > 0 && (
         <Card style={{ marginBottom: 18 }}>
           <CardTitle sub={<Badge variant="warn">ATENÇÃO</Badge>}>⚠️ Compras sem Nota Fiscal de Entrada</CardTitle>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 12 }}>
             Compras sem nota de entrada. Crédito fiscal perdido e risco de autuação.
           </p>
           <Table headers={['Descrição', 'Valor', 'Severidade', 'Resolução']}>
@@ -355,7 +355,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
       {pagSemNfSped.length > 0 && (
         <Card style={{ marginBottom: 18 }}>
           <CardTitle sub={<Badge variant="warn">SPED</Badge>}>📤 Pagamentos Bancários sem NF de Compra no SPED</CardTitle>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 12 }}>
             Saídas bancárias sem NF de entrada correspondente. Pode ser despesa não classificada ou compra não escriturada.
           </p>
           <Table headers={['Descrição', 'Valor', 'Severidade', 'Resolução']}>
@@ -392,7 +392,7 @@ export default function Cruzamento({ clienteId, periodo, refresh, onRecarregar }
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--green)' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Nenhuma divergência encontrada!</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>Todos os dados estão conciliados.</div>
+          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 6 }}>Todos os dados estão conciliados.</div>
         </div>
       )}
 

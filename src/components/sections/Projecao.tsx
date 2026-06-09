@@ -51,13 +51,13 @@ export default function Projecao({ cliente }: Props) {
           border: `1px solid ${melhor === 'simples' ? 'var(--green)' : 'var(--border)'}`,
           borderRadius: 10, padding: 16,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', marginBottom: 8 }}>
             Simples Nacional {melhor === 'simples' ? '✓ Recomendado' : ''}
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: melhor === 'simples' ? 'var(--green)' : 'var(--text)' }}>
             {brl(simples.imposto)}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>
             Alíquota efetiva: {pct(simples.aliquota_efetiva * 100, 2)}
           </div>
           {melhor === 'simples' && (
@@ -70,13 +70,13 @@ export default function Projecao({ cliente }: Props) {
           border: `1px solid ${melhor === 'presumido' ? 'var(--green)' : 'var(--border)'}`,
           borderRadius: 10, padding: 16,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', marginBottom: 8 }}>
             Lucro Presumido {melhor === 'presumido' ? '✓ Recomendado' : ''}
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: melhor === 'presumido' ? 'var(--green)' : 'var(--text)' }}>
             {brl(presumido.total)}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>
             Alíquota efetiva: {fat > 0 ? pct(presumido.total / fat * 100, 2) : '—%'}
           </div>
           {melhor === 'presumido' && (
@@ -85,11 +85,11 @@ export default function Projecao({ cliente }: Props) {
         </div>
 
         <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', marginBottom: 8 }}>
             Economia Potencial / Mês
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{brl(economia)}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>
             Optando por {melhor === 'simples' ? 'Simples Nacional' : 'Lucro Presumido'}
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function Projecao({ cliente }: Props) {
             { label: 'Alíquota efetiva calculada', valor: null, texto: pct(simples.aliquota_efetiva * 100, 2), color: 'var(--accent2)' },
           ].map((r, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-              <span style={{ color: 'var(--muted)' }}>{r.label}</span>
+              <span style={{ color: 'var(--muted-foreground)' }}>{r.label}</span>
               <span style={{ fontWeight: 700, color: r.color }}>{r.texto || brl(r.valor!)}</span>
             </div>
           ))}
@@ -126,7 +126,7 @@ export default function Projecao({ cliente }: Props) {
             { label: 'CSLL (base 12% × 9%)', valor: presumido.csll },
           ].map((r, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
-              <span style={{ color: 'var(--muted)' }}>{r.label}</span>
+              <span style={{ color: 'var(--muted-foreground)' }}>{r.label}</span>
               <span style={{ fontWeight: 700 }}>{brl(r.valor)}</span>
             </div>
           ))}
@@ -134,7 +134,7 @@ export default function Projecao({ cliente }: Props) {
             <span style={{ fontWeight: 700 }}>Total Presumido</span>
             <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--gold)' }}>{brl(presumido.total)}</span>
           </div>
-          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)', background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
+          <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted-foreground)', background: 'var(--surface2)', padding: '10px 12px', borderRadius: 8 }}>
             📌 Fator R: <strong style={{ color: 'var(--text)' }}>{fatorR}%</strong> — {parseFloat(fatorR) >= 28 ? 'Acima de 28% → migrar para Anexo III pode ser mais vantajoso.' : 'Abaixo de 28% → permanece no Anexo V.'}
           </div>
         </Card>

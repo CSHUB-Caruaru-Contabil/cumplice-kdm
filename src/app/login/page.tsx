@@ -88,7 +88,7 @@ export default function LoginPage() {
               { icon: '⚡', label: 'Cruzamento NF × Banco automático' },
               { icon: '📊', label: 'KPIs e alertas fiscais em tempo real' },
               { icon: '📈', label: 'Projeção Simples × Presumido × Real' },
-              { icon: '🔗', label: 'SPED EFD integrado ao fluxo de caixa' },
+              { icon: '🔗', label: 'Entradas e saídas integradas ao fluxo de caixa' },
             ].map(f => (
               <div key={f.label} className="flex items-center gap-3">
                 <span className="text-base leading-none">{f.icon}</span>

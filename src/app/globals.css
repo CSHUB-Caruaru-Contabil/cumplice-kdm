@@ -27,14 +27,14 @@
   --primary-foreground:   oklch(1 0 0);
 
   --secondary:            oklch(0.93 0.005 240);   /* cinza bem claro */
-  --secondary-foreground: oklch(0.20 0.06 252);
+  --secondary-foreground: oklch(0.15 0.055 252);
   --muted:                oklch(0.93 0.005 240);
-  --muted-foreground:     oklch(0.48 0.04 252);
+  --muted-foreground:     oklch(0.32 0.04 252);    /* escuro suficiente p/ legibilidade */
   --accent:               oklch(0.93 0.005 240);
   --accent-foreground:    oklch(0.13 0.055 252);
   --destructive:          oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border:               oklch(0.90 0.006 240);   /* borda cinza suave */
+  --border:               oklch(0.88 0.008 240);   /* borda cinza suave */
   --input:                oklch(0.95 0.004 240);
   --ring:                 oklch(0.72 0.22 40);
 
