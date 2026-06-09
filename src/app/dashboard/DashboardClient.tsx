@@ -120,16 +120,16 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
         style={{ marginLeft: sidebarCollapsed ? 64 : 240 }}
       >
         {/* Topbar */}
-        <header className="sticky top-0 z-40 flex items-center justify-between px-6 py-3.5 bg-sidebar border-b border-sidebar-border">
+        <header className="sticky top-0 z-40 flex items-center justify-between px-6 py-3.5 bg-card border-b border-border">
           <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground leading-tight">{titulo}</h1>
-            <p className="text-xs text-sidebar-foreground/60 mt-0.5">
+            <h1 className="text-lg font-bold text-foreground leading-tight">{titulo}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
               {subtitulo}{clienteAtivo ? ` · ${clienteAtivo.razao_social}` : ''}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={recarregar} disabled={atualizando} className="gap-2 text-xs border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground bg-transparent">
+            <Button variant="outline" size="sm" onClick={recarregar} disabled={atualizando} className="gap-2 text-xs">
               <RefreshCw className={`h-3.5 w-3.5 ${atualizando ? 'animate-spin' : ''}`} />
               {atualizando ? 'Atualizando...' : 'Atualizar'}
             </Button>

@@ -121,11 +121,12 @@ function SidebarContent({
         'flex items-center gap-2.5 py-5 border-b border-sidebar-border',
         collapsed ? 'justify-center px-0' : 'px-4',
       )}>
-        <span className="text-xl shrink-0">⚡</span>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="font-bold text-[15px] text-sidebar-foreground leading-none">Cúmplice</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Inteligência Contábil</p>
+        {collapsed ? (
+          <span className="text-lg font-black" style={{ color: 'oklch(0.72 0.22 40)' }}>C</span>
+        ) : (
+          <div className="flex items-center gap-0.5">
+            <span className="text-xl font-black text-sidebar-foreground tracking-tight">CS</span>
+            <span className="text-xl font-black tracking-tight" style={{ color: 'oklch(0.72 0.22 40)' }}>HUB</span>
           </div>
         )}
       </div>
@@ -158,7 +159,7 @@ function SidebarContent({
         {NAV_ITEMS.map(group => (
           <div key={group.section}>
             {!collapsed ? (
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-4 pt-4 pb-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-4 pt-4 pb-1">
                 {group.section}
               </p>
             ) : (
@@ -168,11 +169,11 @@ function SidebarContent({
               const Icon = item.icon
               const isActive = secao === item.id
               const btnCls = cn(
-                'flex items-center w-full transition-colors text-left',
-                collapsed ? 'justify-center py-2.5 px-0' : 'gap-2.5 px-4 py-2',
+                'flex items-center w-full transition-colors text-left rounded-lg',
+                collapsed ? 'justify-center py-2.5 px-0 mx-0' : 'gap-2.5 px-3 py-2 mx-1 w-[calc(100%-8px)]',
                 isActive
-                  ? 'bg-primary/10 text-primary border-l-[3px] border-primary'
-                  : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground border-l-[3px] border-transparent',
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground',
               )
               return collapsed ? (
                 <Tooltip key={item.id}>

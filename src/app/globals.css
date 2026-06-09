@@ -14,39 +14,39 @@
 :root {
   --radius: 0.625rem;
 
-  /* Fundo azulado CSHub — não branco puro */
-  --background:           oklch(0.89 0.030 248);   /* azul-aço médio — mais visivelmente azul */
-  --foreground:           oklch(0.14 0.055 252);   /* navy escuro para texto */
-  --card:                 oklch(0.97 0.012 246);   /* branco levemente azulado */
-  --card-foreground:      oklch(0.14 0.055 252);
-  --popover:              oklch(0.98 0.008 245);
-  --popover-foreground:   oklch(0.14 0.055 252);
+  /* Fundo cinza neutro claro — igual ao reference CSHub */
+  --background:           oklch(0.96 0.004 240);   /* cinza claro #F4F4F5 */
+  --foreground:           oklch(0.13 0.055 252);   /* navy escuro para texto */
+  --card:                 oklch(1 0 0);             /* branco puro */
+  --card-foreground:      oklch(0.13 0.055 252);
+  --popover:              oklch(1 0 0);
+  --popover-foreground:   oklch(0.13 0.055 252);
 
   /* PRIMARY = laranja CSHub */
-  --primary:              oklch(0.65 0.22 40);
+  --primary:              oklch(0.72 0.22 40);
   --primary-foreground:   oklch(1 0 0);
 
-  --secondary:            oklch(0.88 0.025 248);   /* azul-cinza médio */
+  --secondary:            oklch(0.93 0.005 240);   /* cinza bem claro */
   --secondary-foreground: oklch(0.20 0.06 252);
-  --muted:                oklch(0.88 0.025 248);
-  --muted-foreground:     oklch(0.45 0.055 252);  /* navy médio — legível em bg claro */
-  --accent:               oklch(0.88 0.025 248);
-  --accent-foreground:    oklch(0.14 0.055 252);
+  --muted:                oklch(0.93 0.005 240);
+  --muted-foreground:     oklch(0.48 0.04 252);
+  --accent:               oklch(0.93 0.005 240);
+  --accent-foreground:    oklch(0.13 0.055 252);
   --destructive:          oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border:               oklch(0.82 0.03 248);    /* borda azulada visível */
-  --input:                oklch(0.94 0.015 246);
-  --ring:                 oklch(0.65 0.22 40);
+  --border:               oklch(0.90 0.006 240);   /* borda cinza suave */
+  --input:                oklch(0.95 0.004 240);
+  --ring:                 oklch(0.72 0.22 40);
 
-  /* SIDEBAR = navy marinho sólido */
-  --sidebar:                    oklch(0.16 0.055 252);
-  --sidebar-foreground:         oklch(0.92 0.01 240);
-  --sidebar-primary:            oklch(0.68 0.22 40);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent:             oklch(0.22 0.065 252);
-  --sidebar-accent-foreground:  oklch(0.92 0.01 240);
-  --sidebar-border:             oklch(1 0 0 / 8%);
-  --sidebar-ring:               oklch(0.68 0.22 40);
+  /* SIDEBAR = branco com texto navy — igual ao reference */
+  --sidebar:                    oklch(1 0 0);               /* branco */
+  --sidebar-foreground:         oklch(0.13 0.055 252);      /* navy escuro */
+  --sidebar-primary:            oklch(0.72 0.22 40);        /* laranja */
+  --sidebar-primary-foreground: oklch(1 0 0);               /* branco */
+  --sidebar-accent:             oklch(0.72 0.22 40);        /* laranja sólido p/ ativo */
+  --sidebar-accent-foreground:  oklch(1 0 0);               /* branco sobre laranja */
+  --sidebar-border:             oklch(0.90 0.006 240);      /* borda cinza suave */
+  --sidebar-ring:               oklch(0.72 0.22 40);
 
   --text:     var(--foreground);
   --bg:       var(--background);
