@@ -12,7 +12,7 @@ import type { Cliente } from '@/lib/supabase/types'
 import type { Section } from '@/app/dashboard/DashboardClient'
 
 import {
-  LayoutDashboard, ShoppingCart, FileText, Landmark, CreditCard,
+  LayoutDashboard, ShoppingCart, FileText, FileSpreadsheet, Landmark, CreditCard,
   ScanSearch, TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, Menu, Building2, Users, Wrench, Search,
 } from 'lucide-react'
 import MonthPicker from '@/components/MonthPicker'
@@ -39,6 +39,7 @@ const NAV_ITEMS: { section: string; items: NavItem[] }[] = [
     items: [
       { id: 'compras',  icon: ShoppingCart, label: 'Compras' },
       { id: 'notas',    icon: FileText,     label: 'Notas Fiscais' },
+      { id: 'sped',     icon: FileSpreadsheet, label: 'SPED EFD' },
       { id: 'banco',    icon: Landmark,     label: 'Banco' },
       { id: 'despesas', icon: CreditCard,   label: 'Despesas' },
     ],

@@ -23,6 +23,7 @@ model Cliente {
 
   compras          Compra[]
   notas_fiscais    NotaFiscal[]
+  documentos_sped  DocumentoSped[]
   banco_lancamentos BancoLancamento[]
   despesas         Despesa[]
   divergencias     Divergencia[]
@@ -89,6 +90,35 @@ model NotaFiscal {
   divergencia      Divergencia[]
 
   @@map("notas_fiscais")
+}
+
+// Documentos fiscais lidos de arquivos SPED EFD ICMS/IPI (registros C100/C170/C190)
+// Guarda o documento já classificado por CFOP (ver @/lib/cfop) — fonte separada
+// de `compras`/`notas_fiscais`, que continuam alimentadas por XML/lançamento manual.
+model DocumentoSped {
+  id                 String    @id @default(uuid())
+  cliente_id         String
+  periodo            String        // YYYY-MM
+  tipo               String        // 'entrada' | 'saida'
+  emissao            String        // 'propria' | 'terceiros'
+  cod_participante   String?
+  participante_nome  String?
+  cnpj_participante  String?
+  modelo             String?
+  serie              String?
+  numero             String
+  chave_nfe          String?
+  data_emissao       DateTime  @db.Date
+  data_entrada_saida DateTime? @db.Date
+  valor_total        Decimal
+  cfop               String
+  classificacao      String        // tipo da classificação CFOP (venda, compra, remessa, ...)
+  cancelado          Boolean   @default(false)
+  created_at         DateTime  @default(now())
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+
+  @@map("documentos_sped")
 }
 
 model BancoLancamento {

@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar'
 import VisaoGeral from '@/components/sections/VisaoGeral'
 import Compras from '@/components/sections/Compras'
 import NotasFiscais from '@/components/sections/NotasFiscais'
+import Sped from '@/components/sections/Sped'
 import Banco from '@/components/sections/Banco'
 import Despesas from '@/components/sections/Despesas'
 import Cruzamento from '@/components/sections/Cruzamento'
@@ -22,13 +23,14 @@ import { RefreshCw, Building2, ArrowRight } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export type Section =
-  | 'visao-geral' | 'compras' | 'notas' | 'banco'
+  | 'visao-geral' | 'compras' | 'notas' | 'sped' | 'banco'
   | 'despesas' | 'cruzamento' | 'projecao' | 'config' | 'clientes' | 'usuarios' | 'ferramentas' | 'busca'
 
 const SECTION_TITLES: Record<Section, [string, string]> = {
   'visao-geral': ['Visão Geral', 'Painel de alertas e KPIs do mês'],
   'compras':     ['Compras', 'Registro de compras e notas de entrada'],
   'notas':       ['Notas Fiscais', 'NFs emitidas no período'],
+  'sped':        ['SPED EFD', 'Importação e documentos da escrituração fiscal digital'],
   'banco':       ['Banco', 'Movimentações bancárias'],
   'despesas':    ['Despesas', 'Despesas operacionais do mês'],
   'cruzamento':  ['Cruzamento de Dados', 'Divergências identificadas automaticamente'],
@@ -68,7 +70,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Seções que precisam de um cliente ativo
-  const SECOES_COM_CLIENTE: Section[] = ['visao-geral','compras','notas','banco','despesas','cruzamento','projecao','config']
+  const SECOES_COM_CLIENTE: Section[] = ['visao-geral','compras','notas','sped','banco','despesas','cruzamento','projecao','config']
   const precisaCliente = SECOES_COM_CLIENTE.includes(secao)
 
   const supabase = createClient()
@@ -159,6 +161,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
               {secao === 'visao-geral' && <VisaoGeral {...sectionProps} cliente={clienteAtivo} />}
               {secao === 'compras'     && <Compras {...sectionProps} />}
               {secao === 'notas'       && <NotasFiscais {...sectionProps} />}
+              {secao === 'sped'        && <Sped {...sectionProps} />}
               {secao === 'banco'       && <Banco {...sectionProps} />}
               {secao === 'despesas'    && <Despesas {...sectionProps} />}
               {secao === 'cruzamento'  && <Cruzamento {...sectionProps} />}

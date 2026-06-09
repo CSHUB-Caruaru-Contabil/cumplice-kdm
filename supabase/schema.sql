@@ -195,3 +195,13 @@ create policy "thresholds_acesso" on thresholds
 -- DADOS DE EXEMPLO
 -- ============================
 -- (inserir após criar usuário via auth)
+
+-- ============================
+-- DOCUMENTOS SPED (entradas/saídas lidas de arquivos SPED EFD ICMS/IPI)
+-- ============================
+alter table documentos_sped enable row level security;
+
+create policy "documentos_sped_acesso" on documentos_sped
+  using (cliente_id in (
+    select cliente_id from usuario_clientes where usuario_id = auth.uid()
+  ));

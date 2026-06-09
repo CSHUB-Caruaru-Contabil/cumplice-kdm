@@ -50,6 +50,28 @@ export type NotaFiscal = {
   created_at: string
 }
 
+export type DocumentoSped = {
+  id: string
+  cliente_id: string
+  periodo: string
+  tipo: 'entrada' | 'saida'
+  emissao: 'propria' | 'terceiros'
+  cod_participante?: Maybe<string>
+  participante_nome?: Maybe<string>
+  cnpj_participante?: Maybe<string>
+  modelo?: Maybe<string>
+  serie?: Maybe<string>
+  numero: string
+  chave_nfe?: Maybe<string>
+  data_emissao: string
+  data_entrada_saida?: Maybe<string>
+  valor_total: number
+  cfop: string
+  classificacao: string
+  cancelado: boolean
+  created_at: string
+}
+
 export type BancoLancamento = {
   id: string
   cliente_id: string
