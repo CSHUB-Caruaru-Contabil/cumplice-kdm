@@ -15,9 +15,9 @@
   --radius: 0.625rem;
 
   /* Fundo azulado CSHub — não branco puro */
-  --background:           oklch(0.92 0.022 248);   /* azul-aço suave #E3ECF7 */
+  --background:           oklch(0.89 0.030 248);   /* azul-aço médio — mais visivelmente azul */
   --foreground:           oklch(0.14 0.055 252);   /* navy escuro para texto */
-  --card:                 oklch(0.98 0.008 245);   /* quase branco com toque azul */
+  --card:                 oklch(0.97 0.012 246);   /* branco levemente azulado */
   --card-foreground:      oklch(0.14 0.055 252);
   --popover:              oklch(0.98 0.008 245);
   --popover-foreground:   oklch(0.14 0.055 252);
@@ -29,7 +29,7 @@
   --secondary:            oklch(0.88 0.025 248);   /* azul-cinza médio */
   --secondary-foreground: oklch(0.20 0.06 252);
   --muted:                oklch(0.88 0.025 248);
-  --muted-foreground:     oklch(0.38 0.05 252);
+  --muted-foreground:     oklch(0.45 0.055 252);  /* navy médio — legível em bg claro */
   --accent:               oklch(0.88 0.025 248);
   --accent-foreground:    oklch(0.14 0.055 252);
   --destructive:          oklch(0.55 0.22 25);
@@ -142,9 +142,6 @@
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground font-sans antialiased; }
 }
-
-:root  { --muted: oklch(0.38 0.05 252); }
-.dark  { --muted: oklch(0.62 0.025 248); }
 
 .scrollbar-thin {
   scrollbar-width: thin;
