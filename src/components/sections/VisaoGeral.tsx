@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calcularSimples, calcularLucroPresumido } from '@/lib/crossref'
-import type { Cliente, Compra, Despesa, NotaFiscal, BancoLancamento } from '@/lib/supabase/types'
+import type { Cliente, Compra, Despesa, DocumentoSped, NotaFiscal, BancoLancamento } from '@/lib/supabase/types'
 import { AlertBar, Card, CardTitle, KpiCard, Tag, brl, brlC, pct } from '@/components/ui'
 import { ehVenda, ehRemessa, ehRetorno, ehDevolucao, ehDevolucaoEntrada } from '@/lib/cfop'
 
@@ -36,6 +36,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
 
   const [dados, setDados] = useState<{
     notas: NotaFiscal[]; compras: Compra[]; despesas: Despesa[]; banco: BancoLancamento[]
+    sped: DocumentoSped[]
   } | null>(null)
   const [carregando, setCarregando] = useState(true)
 
@@ -50,11 +51,12 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
     let cancelado = false
     async function carregar() {
       try {
-        const [notas, compras, despesas, banco] = await Promise.all([
+        const [notas, compras, despesas, banco, sped] = await Promise.all([
           fetchTudo(supabase, 'notas_fiscais', { cliente_id: clienteId, periodo, cancelada: false }),
           fetchTudo(supabase, 'compras',        { cliente_id: clienteId, periodo, cancelada: false }),
           fetchTudo(supabase, 'despesas',       { cliente_id: clienteId, periodo }),
           fetchTudo(supabase, 'banco_lancamentos', { cliente_id: clienteId, periodo }),
+          fetchTudo(supabase, 'documentos_sped', { cliente_id: clienteId, periodo, cancelado: false }),
         ])
         if (cancelado) return
         setDados({
@@ -62,9 +64,10 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
           compras: (compras as Compra[]).map(r => ({ ...r, status: r.nf_entrada ? 'ok' : 'sem_nf' })),
           despesas: (despesas as Despesa[]).map(r => ({ ...r, status: r.documento ? 'ok' : 'sem_doc' })),
           banco: banco as BancoLancamento[],
+          sped: sped as DocumentoSped[],
         })
       } catch {
-        if (!cancelado) setDados({ notas: [], compras: [], despesas: [], banco: [] })
+        if (!cancelado) setDados({ notas: [], compras: [], despesas: [], banco: [], sped: [] })
       } finally {
         if (!cancelado) setCarregando(false)
       }
@@ -77,33 +80,46 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
     return <div style={{ color: 'var(--muted)', padding: 40, textAlign: 'center' }}>Carregando...</div>
   }
 
-  const { notas, compras, despesas, banco } = dados
+  const { notas, compras, despesas, banco, sped } = dados
 
-  // Classifica NFs por CFOP
+  // ── SPED como fonte de dados quando tabelas manuais estão vazias ─────────
+  // Fonte dos dados: 'nf' (notas_fiscais) ou 'sped' (documentos_sped)
+  const usandoSpedFaturamento = notas.length === 0 && sped.length > 0
+  const usandoSpedCompras     = compras.length === 0 && sped.length > 0
+
+  // Faturamento via notas_fiscais (XML/manual)
   const notasVenda     = notas.filter(n => ehVenda(n.cfop))
   const notasRemessa   = notas.filter(n => ehRemessa(n.cfop))
   const notasRetorno   = notas.filter(n => ehRetorno(n.cfop))
   const notasDevolucao = notas.filter(n => ehDevolucao(n.cfop))
-
-  // Totais por tipo
   const total_remessas         = notasRemessa.reduce((s, n) => s + n.valor, 0)
-  // (notasRetorno agora é remessa, total_retornos mantido para compatibilidade)
   const total_retornos         = notasRetorno.reduce((s, n) => s + n.valor, 0)
-
-  // Faturamento real = vendas − devoluções − retornos
-  // Remessas: excluídas (neutras — saída de estoque sem receita)
-  const faturamento_vendas     = notasVenda.reduce((s, n) => s + n.valor, 0)
+  const faturamento_vendas_nf  = notasVenda.reduce((s, n) => s + n.valor, 0)
   const faturamento_devolucoes = notasDevolucao.reduce((s, n) => s + n.valor, 0)
-  const faturamento_nf         = faturamento_vendas - faturamento_devolucoes - total_retornos
+  const faturamento_nf_manual  = faturamento_vendas_nf - faturamento_devolucoes - total_retornos
+
+  // Faturamento via SPED (saídas com classificacao='venda')
+  const spedVendas         = sped.filter(d => d.tipo === 'saida' && d.classificacao === 'venda')
+  const faturamento_nf_sped = spedVendas.reduce((s, d) => s + d.valor_total, 0)
+
+  // Faturamento efetivo: prioriza notas_fiscais; cai para SPED quando vazio
+  const faturamento_nf = usandoSpedFaturamento ? faturamento_nf_sped : faturamento_nf_manual
 
   const entradas_banco = banco.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0)
 
-  // Identifica devolução: campo devolucao=true (toggle manual) OU cfop 12xx/22xx (detecção automática)
+  // Compras via tabela compras (manual/XML)
   const ehDev = (c: Compra) => !!c.devolucao || ehDevolucaoEntrada(c.cfop)
-  const total_bruto_compras = compras.reduce((s, c) => s + c.valor, 0)
-  const devolucoes_entrada  = compras.filter(c => ehDev(c)).reduce((s, c) => s + c.valor, 0)
-  const compras_brutas      = total_bruto_compras   // total antes da dedução (para exibição)
-  const total_compras       = total_bruto_compras - devolucoes_entrada
+  const total_bruto_compras  = compras.reduce((s, c) => s + c.valor, 0)
+  const devolucoes_entrada   = compras.filter(c => ehDev(c)).reduce((s, c) => s + c.valor, 0)
+  const compras_brutas       = total_bruto_compras
+  const total_compras_manual = total_bruto_compras - devolucoes_entrada
+
+  // Compras via SPED (entradas com classificacao='compra')
+  const spedCompras      = sped.filter(d => d.tipo === 'entrada' && d.classificacao === 'compra')
+  const total_compras_sped = spedCompras.reduce((s, d) => s + d.valor_total, 0)
+
+  // Compras efetivas: prioriza tabela compras; cai para SPED quando vazio
+  const total_compras = usandoSpedCompras ? total_compras_sped : total_compras_manual
 
   const total_despesas = despesas.reduce((s, d) => s + d.valor, 0)
 
@@ -183,26 +199,32 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
-        <KpiCard label="Faturamento Real" value={brlC(faturamento_nf)}
+        <KpiCard
+          label={usandoSpedFaturamento ? 'Faturamento Real (SPED)' : 'Faturamento Real'}
+          value={brlC(faturamento_nf)}
           delta={
-            (total_remessas + total_retornos) > 0
-              ? `−${brlC(total_retornos)} retornos · −${brlC(total_remessas)} rem. excl.`
-              : `${notasVenda.length} NFs de venda`
+            usandoSpedFaturamento
+              ? `via SPED · ${spedVendas.length} docs venda`
+              : (total_remessas + total_retornos) > 0
+                ? `−${brlC(total_retornos)} retornos · −${brlC(total_remessas)} rem. excl.`
+                : `${notasVenda.length} NFs de venda`
           }
-          deltaType={(total_remessas + total_retornos) > 0 ? 'warn' : undefined}
+          deltaType={usandoSpedFaturamento ? 'up' : (total_remessas + total_retornos) > 0 ? 'warn' : undefined}
           topColor="var(--accent)" />
         <KpiCard label="Entradas no Banco" value={brlC(entradas_banco)}
           delta={divergencia_banco_nf > 0 ? `⚠ ${brlC(divergencia_banco_nf)} sem NF` : '✓ Conciliado'}
           deltaType={divergencia_banco_nf > 0 ? 'warn' : 'up'} topColor="var(--green)" />
         <KpiCard
-          label={usando_sim ? 'Compras (c/ CMV simulado)' : 'Compras Líquidas'}
+          label={usandoSpedCompras ? 'Compras Líquidas (SPED)' : usando_sim ? 'Compras (c/ CMV simulado)' : 'Compras Líquidas'}
           value={usando_sim && cmv_simulado !== null ? brlC(cmv_simulado) : brlC(total_compras)}
-          delta={usando_sim && cmv_simulado !== null
-            ? `Est.ini ${brlC(estoqueIni)} · Est.fin ${brlC(estoqueFin)}`
-            : devolucoes_entrada > 0
-              ? `Bruto ${brlC(compras_brutas)} − Dev. ${brlC(devolucoes_entrada)}`
-              : '⚠ CMV requer estoque — use o simulador'}
-          deltaType={usando_sim ? undefined : devolucoes_entrada > 0 ? undefined : 'warn'}
+          delta={usandoSpedCompras && !usando_sim
+            ? `via SPED · ${spedCompras.length} docs compra`
+            : usando_sim && cmv_simulado !== null
+              ? `Est.ini ${brlC(estoqueIni)} · Est.fin ${brlC(estoqueFin)}`
+              : devolucoes_entrada > 0
+                ? `Bruto ${brlC(compras_brutas)} − Dev. ${brlC(devolucoes_entrada)}`
+                : '⚠ CMV requer estoque — use o simulador'}
+          deltaType={usandoSpedCompras && !usando_sim ? 'up' : usando_sim ? undefined : devolucoes_entrada > 0 ? undefined : 'warn'}
           topColor="var(--red)" />
         <KpiCard label="Imposto Estimado" value={brlC(imposto)}
           delta={faturamento_nf > 0 ? `${pct(aliquotaImposto)} · ${ehPresumido ? 'Presumido' : ehReal ? 'Lucro Real' : 'Simples'}` : '—'}
