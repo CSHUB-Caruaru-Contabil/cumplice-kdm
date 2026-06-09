@@ -118,6 +118,8 @@ export type Divergencia = {
   despesa_id?: Maybe<string>
   resolvida: boolean
   observacao?: Maybe<string>
+  resolucao_tipo?: Maybe<string>
+  resolucao_nf_id?: Maybe<string>
   created_at: string
 }
 

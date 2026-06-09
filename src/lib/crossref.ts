@@ -9,7 +9,7 @@ import { ehVenda } from './cfop'
 export type ResultadoCruzamento = {
   divergencias: Omit<Divergencia, 'id' | 'created_at'>[]
   conciliacoes: { banco_id: string; nf_id: string; diferenca: number }[]
-  conciliacoesSped: { banco_id: string; sped_id: string; diferenca: number; via: 'compra' | 'venda' }[]
+  conciliacoesSped: { banco_id: string; sped_id: string; diferenca: number; via: 'compra' | 'venda' | 'despesa' }[]
   estatisticas: {
     total_lancamentos_banco: number
     conciliados: number
@@ -20,6 +20,7 @@ export type ResultadoCruzamento = {
     valor_despesas_sem_doc: number
     // SPED
     saidas_banco_conciliadas_sped: number
+    saidas_banco_conciliadas_despesa: number
     valor_pagamentos_sem_nf_sped: number
     // SPED venda
     entradas_banco_conciliadas_sped_venda: number
@@ -108,9 +109,9 @@ export function cruzarDados(
     d.classificacao === 'venda'
   )
 
-  // Docs SPED de compra (entradas com CFOPs de compra de insumo)
+  // Docs SPED de compra (entradas com classificacao='compra' — abrange todos os CFOPs de insumo)
   const spedCompras = spedDocs.filter(d =>
-    d.tipo === 'entrada' && !d.cancelado && CFOPS_COMPRA_SPED.has(d.cfop)
+    d.tipo === 'entrada' && !d.cancelado && d.classificacao === 'compra'
   )
 
   // ========================================
@@ -193,19 +194,46 @@ export function cruzarDados(
   // ========================================
   const saidas = bancosEntrada.filter(b => b.tipo === 'saida' && b.valor > 0)
 
+  const despesasUsadas = new Set<string>()
+
   for (const lanc of saidas) {
-    const match = spedCompras.find(doc => {
+    // Estratégia A: match contra SPED compras (NF de entrada de mercadoria/insumo)
+    // Usa mesma lógica B2B: CNPJ/nome na descrição OU valor ±5% + janela 90 dias
+    const matchSped = spedCompras.find(doc => {
       if (spedUsados.has(doc.id)) return false
-      const valorOk = dentroToleranciaPct(lanc.valor, doc.valor_total, TOLERANCIA_VALOR)
-      const dataOk = diffDias(lanc.data, doc.data_emissao) <= JANELA_DIAS
-      return valorOk && dataOk
+      const valorOk = dentroToleranciaPct(lanc.valor, doc.valor_total, TOLERANCIA_VALOR_B2B)
+      if (!valorOk) return false
+
+      if (cnpjNaDescricao(doc.cnpj_participante, lanc.descricao)) return true
+      if (nomeNaDescricao(doc.participante_nome, lanc.descricao)) return true
+
+      return diffDias(lanc.data, doc.data_emissao) <= JANELA_DIAS_B2B
     })
 
-    if (match) {
-      spedUsados.add(match.id)
-      const diferenca = Math.abs(lanc.valor - match.valor_total)
-      conciliacoesSped.push({ banco_id: lanc.id, sped_id: match.id, diferenca, via: 'compra' })
-    } else if (lanc.valor >= thresholds.divergencia_banco_nf) {
+    if (matchSped) {
+      spedUsados.add(matchSped.id)
+      bancoUsados.add(lanc.id)
+      const diferenca = Math.abs(lanc.valor - matchSped.valor_total)
+      conciliacoesSped.push({ banco_id: lanc.id, sped_id: matchSped.id, diferenca, via: 'compra' })
+      continue
+    }
+
+    // Estratégia B: match contra tabela despesas (serviços, aluguel, contas)
+    // Valor ±2% + janela 5 dias (despesas costumam ser pagas na data exata)
+    const matchDespesa = despesas.find(desp => {
+      if (despesasUsadas.has(desp.id)) return false
+      return dentroToleranciaPct(lanc.valor, desp.valor, TOLERANCIA_VALOR)
+          && diffDias(lanc.data, desp.data) <= 5
+    })
+
+    if (matchDespesa) {
+      despesasUsadas.add(matchDespesa.id)
+      bancoUsados.add(lanc.id)
+      conciliacoesSped.push({ banco_id: lanc.id, sped_id: matchDespesa.id, diferenca: Math.abs(lanc.valor - matchDespesa.valor), via: 'despesa' })
+      continue
+    }
+
+    if (lanc.valor >= thresholds.divergencia_banco_nf) {
       divergencias.push({
         cliente_id: clienteId, periodo,
         tipo: 'pagamento_sem_nf_sped', severidade: lanc.valor >= 2000 ? 'alto' : 'medio',
@@ -250,8 +278,10 @@ export function cruzarDados(
   // ESTATÍSTICAS
   // ========================================
   const entradas = bancosEntrada.filter(b => b.tipo === 'entrada' && b.valor > 0)
-  // Conciliados = notas_fiscais + sped_venda
+  // Conciliados = notas_fiscais + sped_venda + sped_compra + despesa
   const conciliadosSpedVenda = conciliacoesSped.filter(c => c.via === 'venda').length
+  const conciliadosSpedCompra = conciliacoesSped.filter(c => c.via === 'compra').length
+  const conciliadosDespesa    = conciliacoesSped.filter(c => c.via === 'despesa').length
   const conciliadosCount = conciliacoes.length + conciliadosSpedVenda
   const semNF = entradas.length - conciliadosCount
 
@@ -283,7 +313,8 @@ export function cruzarDados(
       valor_receita_nao_declarada: valorReceitaNaoDeclarada,
       valor_compras_sem_nf: valorComprasSemNF,
       valor_despesas_sem_doc: valorDespSemDoc,
-      saidas_banco_conciliadas_sped: conciliacoesSped.filter(c => c.via === 'compra').length,
+      saidas_banco_conciliadas_sped: conciliadosSpedCompra,
+      saidas_banco_conciliadas_despesa: conciliadosDespesa,
       valor_pagamentos_sem_nf_sped: valorPagSemNfSped,
       entradas_banco_conciliadas_sped_venda: conciliadosSpedVenda,
     },

@@ -42,14 +42,15 @@ export async function conciliarPeriodo(clienteId: string, periodo: string) {
     conciliados++
   }
 
-  // Persiste conciliações via SPED venda (marca lançamento como conciliado)
+  // Persiste conciliações via SPED (venda, compra, despesa) — marca lançamento como conciliado
   for (const { banco_id, diferenca, via } of resultado.conciliacoesSped) {
-    if (via !== 'venda') continue
-    await prisma.bancoLancamento.update({
-      where: { id: banco_id },
-      data: { status: diferenca === 0 ? 'ok' : 'parcial' },
-    }).catch(() => {})
-    conciliados++
+    if (via === 'venda' || via === 'compra' || via === 'despesa') {
+      await prisma.bancoLancamento.update({
+        where: { id: banco_id },
+        data: { status: diferenca === 0 ? 'ok' : 'parcial' },
+      }).catch(() => {})
+      conciliados++
+    }
   }
 
   // Marca como "pendente" entradas que não foram conciliadas
