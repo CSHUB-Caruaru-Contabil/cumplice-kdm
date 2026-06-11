@@ -82,7 +82,9 @@ export async function analisarComprovante(buffer: Buffer, mimeType: string): Pro
       }
 
   const response = await getClient().messages.create({
-    model: 'claude-sonnet-4-6',
+    // Modelo rápido — extração estruturada de valor/data/descrição precisa terminar
+    // dentro do limite de timeout (~26s) das functions serverless do Netlify.
+    model: 'claude-haiku-4-5',
     max_tokens: 4096,
     tools: [TOOL_SCHEMA],
     tool_choice: { type: 'tool', name: TOOL_NAME },
