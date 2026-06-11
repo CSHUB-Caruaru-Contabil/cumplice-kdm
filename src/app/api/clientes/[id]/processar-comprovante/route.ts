@@ -7,6 +7,9 @@ import { matchComprovanteLancamento } from '@/lib/matching/comprovante'
 
 const MIME_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
 
+// Dá mais tempo à função serverless (chamada à Claude API pode passar de 10s)
+export const maxDuration = 60
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -57,10 +60,6 @@ export async function POST(
     const dividirEmSubArquivos = mimeType === 'application/pdf' && detectados.length > 1
 
     const resultado = await Promise.all(detectados.map(async (c, i) => {
-      const arquivoBuffer = dividirEmSubArquivos
-        ? await dividirPdf(buffer, c.paginas)
-        : buffer
-
       const lancamentoId = matchComprovanteLancamento(
         { valor: c.valor, data: c.data },
         lancamentosNum
@@ -69,6 +68,12 @@ export async function POST(
       const sufixo = dividirEmSubArquivos ? ` (pág. ${c.paginas.join(', ')})` : ''
       const nomeBase = file.name.replace(/\.(pdf|jpg|jpeg|png|webp)$/i, '')
 
+      // Só reenviamos os bytes quando o arquivo foi dividido — caso contrário
+      // o cliente já tem o arquivo original e o reaproveita.
+      const arquivoBase64 = dividirEmSubArquivos
+        ? (await dividirPdf(buffer, c.paginas)).toString('base64')
+        : null
+
       return {
         nomeExibicao: `${nomeBase}${detectados.length > 1 ? ` — ${c.descricao}${sufixo}` : ''}`,
         valor: c.valor,
@@ -76,7 +81,7 @@ export async function POST(
         descricao: c.descricao,
         lancamentoId,
         mimeType: dividirEmSubArquivos ? 'application/pdf' : mimeType,
-        arquivoBase64: arquivoBuffer.toString('base64'),
+        arquivoBase64,
         ordem: i,
       }
     }))

@@ -28,6 +28,16 @@ type ArquivoItem = {
   descricaoExtraida: string | null
 }
 
+type ComprovanteResp = {
+  nomeExibicao: string
+  valor: number
+  data: string | null
+  descricao: string
+  lancamentoId: string | null
+  mimeType: string
+  arquivoBase64: string | null
+}
+
 function extFromMime(mime: string): string {
   switch (mime) {
     case 'application/pdf': return 'pdf'
@@ -76,27 +86,26 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
         method: 'POST',
         body: formData,
       })
-      const data = await resp.json()
+
+      let data: { erro?: string; comprovantes?: ComprovanteResp[] }
+      try {
+        data = await resp.json()
+      } catch {
+        throw new Error(resp.status === 504 || resp.status === 502
+          ? 'Tempo limite excedido ao analisar o documento. Tente um arquivo menor.'
+          : `Erro inesperado do servidor (HTTP ${resp.status})`)
+      }
 
       if (!resp.ok) {
         throw new Error(data?.erro || 'Falha ao analisar o documento')
       }
 
-      type ComprovanteResp = {
-        nomeExibicao: string
-        valor: number
-        data: string | null
-        descricao: string
-        lancamentoId: string | null
-        mimeType: string
-        arquivoBase64: string
-      }
-
       const comprovantes: ComprovanteResp[] = data.comprovantes || []
       const novosItens: ArquivoItem[] = comprovantes.map(c => ({
         id: crypto.randomUUID(),
-        blob: base64ToBlob(c.arquivoBase64, c.mimeType),
-        ext: extFromMime(c.mimeType),
+        // Sem arquivoBase64 = arquivo não foi dividido, reaproveita o original
+        blob: c.arquivoBase64 ? base64ToBlob(c.arquivoBase64, c.mimeType) : file,
+        ext: c.arquivoBase64 ? extFromMime(c.mimeType) : (file.name.split('.').pop()?.toLowerCase() || 'pdf'),
         nomeExibicao: c.nomeExibicao,
         lancamentoId: c.lancamentoId,
         status: 'pendente',
