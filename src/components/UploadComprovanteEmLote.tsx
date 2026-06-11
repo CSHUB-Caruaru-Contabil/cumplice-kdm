@@ -436,6 +436,13 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
                     </span>
                   )}
 
+                  {/* IA não conseguiu extrair valor/data do conteúdo */}
+                  {item.valorExtraido == null && item.status === 'pendente' && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded shrink-0" title="A IA não conseguiu identificar valor/data nesta página. Confira o documento e selecione o lançamento manualmente.">
+                      <AlertTriangle className="h-2.5 w-2.5" /> dados não identificados
+                    </span>
+                  )}
+
                   {/* Erro */}
                   {item.status === 'erro' && (
                     <>
