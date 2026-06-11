@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { BancoLancamento } from '@/lib/supabase/types'
 import { brl, fmtData } from '@/components/ui'
-import { Upload, CheckCircle2, XCircle, Link2, Loader2, FileText, ChevronDown, Sparkles, AlertTriangle } from 'lucide-react'
+import { Upload, CheckCircle2, XCircle, Link2, Loader2, FileText, ChevronDown, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { contarPaginas, extrairPagina, juntarPaginas } from '@/lib/pdf-client'
 import { matchComprovanteLancamento } from '@/lib/matching/comprovante'
@@ -23,7 +23,7 @@ type ArquivoItem = {
   nomeExibicao: string
   lancamentoId: string | null   // null = não associado ainda
   semMatchIA: boolean           // true = IA extraiu dados, mas nenhum lançamento correspondeu
-  status: 'pendente' | 'enviando' | 'ok' | 'erro'
+  status: 'pendente' | 'analisando' | 'enviando' | 'ok' | 'erro'
   erro?: string
   url?: string
   valorExtraido: number | null
@@ -54,28 +54,70 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
   const [enviandoTudo, setEnviandoTudo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  async function analisarPagina(file: File): Promise<{ valor: number | null; data: string | null; descricao: string; erro?: string }> {
+  async function analisarPaginaUmaVez(file: File): Promise<{ valor: number | null; data: string | null; descricao: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const resp = await fetch(`/api/clientes/${clienteId}/analisar-pagina-comprovante`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    let data: { erro?: string; valor?: number | null; data?: string | null; descricao?: string }
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      data = await resp.json()
+    } catch {
+      throw new Error(`Erro inesperado do servidor (HTTP ${resp.status})`)
+    }
 
-      const resp = await fetch(`/api/clientes/${clienteId}/analisar-pagina-comprovante`, {
-        method: 'POST',
-        body: formData,
-      })
+    if (!resp.ok) throw new Error(data?.erro || `Falha ao analisar (HTTP ${resp.status})`)
 
-      let data: { erro?: string; valor?: number | null; data?: string | null; descricao?: string }
+    return { valor: data.valor ?? null, data: data.data ?? null, descricao: data.descricao || '' }
+  }
+
+  // Tenta analisar a página algumas vezes antes de desistir — falhas de rede/gateway
+  // costumam ser transitórias, e desistir cedo demais gera "sem match" indevidos.
+  async function analisarPagina(file: File, tentativas = 3): Promise<{ valor: number | null; data: string | null; descricao: string; erro?: string }> {
+    let ultimoErro = 'Erro ao analisar'
+    for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
       try {
-        data = await resp.json()
-      } catch {
-        throw new Error(`Erro inesperado do servidor (HTTP ${resp.status})`)
+        return await analisarPaginaUmaVez(file)
+      } catch (err) {
+        ultimoErro = err instanceof Error ? err.message : ultimoErro
+        if (tentativa < tentativas) await new Promise(r => setTimeout(r, 1000 * tentativa))
       }
+    }
+    return { valor: null, data: null, descricao: '', erro: ultimoErro }
+  }
 
-      if (!resp.ok) throw new Error(data?.erro || 'Falha ao analisar')
+  const LIMITE_IMAGEM = 1.5 * 1024 * 1024
 
-      return { valor: data.valor ?? null, data: data.data ?? null, descricao: data.descricao || '' }
-    } catch (err) {
-      return { valor: null, data: null, descricao: '', erro: err instanceof Error ? err.message : 'Erro ao analisar' }
+  // Reduz imagens grandes (fotos de celular) para evitar 500/timeout no gateway
+  // e acelerar a análise — sem perder legibilidade do comprovante.
+  async function comprimirImagemSeNecessario(file: File): Promise<{ blob: Blob; mime: string; ext: string }> {
+    const extOriginal = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    if (file.size <= LIMITE_IMAGEM) return { blob: file, mime: file.type || `image/${extOriginal}`, ext: extOriginal }
+
+    try {
+      const bitmap = await createImageBitmap(file)
+      const maxDim = 2000
+      const escala = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
+      const w = Math.round(bitmap.width * escala)
+      const h = Math.round(bitmap.height * escala)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('canvas indisponível')
+      ctx.drawImage(bitmap, 0, 0, w, h)
+
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('falha ao comprimir imagem')), 'image/jpeg', 0.85)
+      )
+      return { blob, mime: 'image/jpeg', ext: 'jpg' }
+    } catch {
+      return { blob: file, mime: file.type || `image/${extOriginal}`, ext: extOriginal }
     }
   }
 
@@ -97,6 +139,7 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
     setAberto(true)
 
     const resultados: PaginaResultado[] = []
+    let extImagem = 'jpg'
 
     for (let i = 0; i < totalPaginas; i++) {
       let paginaBlob: Blob
@@ -105,8 +148,10 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
         paginaBlob = await extrairPagina(file, i)
         paginaFile = new File([paginaBlob], `pagina-${i + 1}.pdf`, { type: 'application/pdf' })
       } else {
-        paginaBlob = file
-        paginaFile = file
+        const comprimida = await comprimirImagemSeNecessario(file)
+        paginaBlob = comprimida.blob
+        extImagem = comprimida.ext
+        paginaFile = new File([comprimida.blob], `${nomeBase}.${comprimida.ext}`, { type: comprimida.mime })
       }
 
       const analise = await analisarPagina(paginaFile)
@@ -133,17 +178,20 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
       const head = grupo[0]
       const blob = ehPdf ? await juntarPaginas(grupo.map(g => g.blob)) : grupo[0].blob
       const lancamentoId = matchComprovanteLancamento({ valor: head.valor, data: head.data }, lancamentosParaMatch)
-      const algumErro = grupo.find(g => g.erro)?.erro
+
+      // Só a falha na página que carrega o valor/data invalida o comprovante;
+      // falha em página de continuação não deve descartar um match já encontrado.
+      const erroHead = head.erro
 
       novosItens.push({
         id: crypto.randomUUID(),
         blob,
-        ext: ehPdf ? 'pdf' : (file.name.split('.').pop()?.toLowerCase() || 'jpg'),
+        ext: ehPdf ? 'pdf' : extImagem,
         nomeExibicao: grupos.length > 1 ? `${nomeBase} — ${head.descricao || `comprovante ${novosItens.length + 1}`}` : file.name,
         lancamentoId,
         semMatchIA: head.valor != null && !lancamentoId,
-        status: algumErro ? 'erro' : 'pendente',
-        erro: algumErro,
+        status: erroHead ? 'erro' : 'pendente',
+        erro: erroHead,
         valorExtraido: head.valor,
         dataExtraida: head.data,
         descricaoExtraida: head.descricao || null,
@@ -211,6 +259,36 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
 
   function remover(index: number) {
     setArquivos(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function mimeFromExt(ext: string): string {
+    if (ext === 'pdf') return 'application/pdf'
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+    if (ext === 'png') return 'image/png'
+    if (ext === 'webp') return 'image/webp'
+    return 'application/octet-stream'
+  }
+
+  // Reprocessa um item que falhou na análise (ex: erro transitório do gateway/IA)
+  async function reanalisarItem(index: number) {
+    const item = arquivos[index]
+    setArquivos(prev => prev.map((a, i) => i === index ? { ...a, status: 'analisando', erro: undefined } : a))
+
+    const file = new File([item.blob], `${item.nomeExibicao}.${item.ext}`, { type: mimeFromExt(item.ext) })
+    const analise = await analisarPagina(file)
+    const lancamentosParaMatch = lancamentos.map(l => ({ id: l.id, valor: l.valor, data: l.data }))
+    const lancamentoId = matchComprovanteLancamento({ valor: analise.valor, data: analise.data }, lancamentosParaMatch)
+
+    setArquivos(prev => prev.map((a, i) => i === index ? {
+      ...a,
+      lancamentoId: lancamentoId ?? a.lancamentoId,
+      semMatchIA: analise.valor != null && !lancamentoId,
+      status: analise.erro ? 'erro' : 'pendente',
+      erro: analise.erro,
+      valorExtraido: analise.valor ?? a.valorExtraido,
+      dataExtraida: analise.data ?? a.dataExtraida,
+      descricaoExtraida: analise.descricao || a.descricaoExtraida,
+    } : a))
   }
 
   function alterarLancamento(index: number, lancamentoId: string) {
@@ -303,10 +381,10 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
                 <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2">
                   {/* Ícone status */}
                   <div className="shrink-0">
-                    {item.status === 'ok'       && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                    {item.status === 'erro'     && <XCircle className="h-4 w-4 text-red-400" />}
-                    {item.status === 'enviando' && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
-                    {item.status === 'pendente' && <FileText className="h-4 w-4 text-muted-foreground" />}
+                    {item.status === 'ok'        && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {item.status === 'erro'      && <XCircle className="h-4 w-4 text-red-400" />}
+                    {(item.status === 'enviando' || item.status === 'analisando') && <Loader2 className="h-4 w-4 text-primary animate-spin" />}
+                    {item.status === 'pendente'  && <FileText className="h-4 w-4 text-muted-foreground" />}
                   </div>
 
                   {/* Nome do arquivo + dados extraídos */}
@@ -332,7 +410,7 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
                     <select
                       value={item.lancamentoId || ''}
                       onChange={e => alterarLancamento(i, e.target.value)}
-                      disabled={item.status === 'enviando'}
+                      disabled={item.status === 'enviando' || item.status === 'analisando'}
                       className="flex-1 h-7 rounded-md border border-border bg-card text-foreground text-xs px-2 focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer min-w-0"
                     >
                       <option value="">— Selecionar lançamento —</option>
@@ -360,11 +438,20 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
 
                   {/* Erro */}
                   {item.status === 'erro' && (
-                    <span className="text-[10px] text-red-400 shrink-0" title={item.erro}>{item.erro || 'erro'}</span>
+                    <>
+                      <span className="text-[10px] text-red-400 shrink-0 max-w-[140px] truncate" title={item.erro}>{item.erro || 'erro'}</span>
+                      <button
+                        onClick={() => reanalisarItem(i)}
+                        title="Tentar analisar novamente"
+                        className="inline-flex items-center gap-1 text-[10px] text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded shrink-0 hover:bg-primary/20 transition-colors"
+                      >
+                        <RefreshCw className="h-2.5 w-2.5" /> tentar de novo
+                      </button>
+                    </>
                   )}
 
                   {/* Botão remover */}
-                  {item.status !== 'enviando' && item.status !== 'ok' && (
+                  {item.status !== 'enviando' && item.status !== 'analisando' && item.status !== 'ok' && (
                     <button onClick={() => remover(i)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
                       <XCircle className="h-3.5 w-3.5" />
                     </button>
