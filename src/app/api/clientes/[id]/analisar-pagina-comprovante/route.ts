@@ -41,6 +41,9 @@ export async function POST(
       console.error('[analisar-pagina-comprovante] análise IA falhou', err)
 
       if (err instanceof Anthropic.APIError) {
+        if (err.status === 401 || err.status === 403) {
+          return NextResponse.json({ erro: 'Chave de API da IA ausente ou inválida (configuração do servidor)' }, { status: 500 })
+        }
         if (err.status === 429) {
           return NextResponse.json({ erro: 'Limite de requisições à IA atingido. Tente novamente em instantes.' }, { status: 429 })
         }
@@ -50,9 +53,14 @@ export async function POST(
         if (err.status && err.status >= 500) {
           return NextResponse.json({ erro: 'Serviço de IA indisponível no momento' }, { status: 502 })
         }
+        return NextResponse.json({ erro: `Falha ao analisar a página (IA: ${err.status} ${err.message})` }, { status: 502 })
       }
 
-      return NextResponse.json({ erro: 'Falha ao analisar a página' }, { status: 502 })
+      if (err instanceof Error && err.message.includes('ANTHROPIC_API_KEY')) {
+        return NextResponse.json({ erro: 'ANTHROPIC_API_KEY não configurada no servidor' }, { status: 500 })
+      }
+
+      return NextResponse.json({ erro: `Falha ao analisar a página: ${err instanceof Error ? err.message : 'erro desconhecido'}` }, { status: 502 })
     }
   } catch (err) {
     console.error('[analisar-pagina-comprovante]', err)
