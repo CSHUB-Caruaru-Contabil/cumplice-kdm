@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { BancoLancamento } from '@/lib/supabase/types'
 import { brl, fmtData } from '@/components/ui'
@@ -8,6 +8,7 @@ import { Upload, CheckCircle2, XCircle, Link2, Loader2, FileText, ChevronDown, S
 import { Button } from '@/components/ui/button'
 import { contarPaginas, extrairPagina, juntarPaginas } from '@/lib/pdf-client'
 import { matchComprovanteLancamento } from '@/lib/matching/comprovante'
+import { salvarItem, removerItem, listarItens, limparItens } from '@/lib/comprovante-store'
 
 type Props = {
   clienteId: string
@@ -53,6 +54,56 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
   const [processamentos, setProcessamentos] = useState<Processamento[]>([])
   const [enviandoTudo, setEnviandoTudo] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Restaura comprovantes pendentes/com erro de uma sessão anterior (mesmo cliente/período)
+  useEffect(() => {
+    let cancelado = false
+    listarItens(clienteId, periodo).then(itens => {
+      if (cancelado || !itens.length) return
+      setArquivos(prev => [
+        ...prev,
+        ...itens.map((it): ArquivoItem => ({
+          id: it.id,
+          blob: it.blob,
+          ext: it.ext,
+          nomeExibicao: it.nomeExibicao,
+          lancamentoId: it.lancamentoId,
+          semMatchIA: it.semMatchIA,
+          status: it.status,
+          erro: it.erro,
+          valorExtraido: it.valorExtraido,
+          dataExtraida: it.dataExtraida,
+          descricaoExtraida: it.descricaoExtraida,
+        })),
+      ])
+      setAberto(true)
+    })
+    return () => { cancelado = true }
+  }, [clienteId, periodo])
+
+  // Persiste localmente os comprovantes ainda não enviados (pendentes/erro), para
+  // sobreviverem a um recarregamento de página até o usuário vincular e enviar.
+  useEffect(() => {
+    for (const item of arquivos) {
+      if (item.status === 'ok') continue
+      const status = item.status === 'erro' ? 'erro' : 'pendente'
+      salvarItem({
+        id: item.id,
+        clienteId,
+        periodo,
+        blob: item.blob,
+        ext: item.ext,
+        nomeExibicao: item.nomeExibicao,
+        lancamentoId: item.lancamentoId,
+        semMatchIA: item.semMatchIA,
+        status,
+        erro: item.erro,
+        valorExtraido: item.valorExtraido,
+        dataExtraida: item.dataExtraida,
+        descricaoExtraida: item.descricaoExtraida,
+      })
+    }
+  }, [arquivos, clienteId, periodo])
 
   async function analisarPaginaUmaVez(file: File): Promise<{ valor: number | null; data: string | null; descricao: string }> {
     const formData = new FormData()
@@ -243,6 +294,7 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
       if (saveErr) throw new Error(saveErr.message)
 
       setArquivos(prev => prev.map((a, i) => i === index ? { ...a, status: 'ok', url } : a))
+      await removerItem(item.id)
     } catch (err) {
       setArquivos(prev => prev.map((a, i) => i === index
         ? { ...a, status: 'erro', erro: err instanceof Error ? err.message : 'Erro' } : a))
@@ -258,6 +310,8 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
   }
 
   function remover(index: number) {
+    const item = arquivos[index]
+    removerItem(item.id)
     setArquivos(prev => prev.filter((_, i) => i !== index))
   }
 
@@ -476,7 +530,7 @@ export default function UploadComprovanteEmLote({ clienteId, periodo, lancamento
               </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="text-xs"
-                  onClick={() => setArquivos([])} disabled={enviandoTudo}>
+                  onClick={() => { limparItens(clienteId, periodo); setArquivos([]) }} disabled={enviandoTudo}>
                   Limpar
                 </Button>
                 <Button size="sm" className="text-xs gap-1.5"
