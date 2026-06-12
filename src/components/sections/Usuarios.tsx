@@ -20,7 +20,7 @@ type Usuario = {
 const vazio = () => ({ email: '', senha: '', confirmarSenha: '', papel: 'contador' })
 
 const PAPEIS = [
-  { value: 'contador', label: 'Contador',   desc: 'Visualiza e lança dados',               icon: UserCircle2,  cor: 'text-blue-400',   bg: 'bg-blue-500/15   border-blue-500/30'   },
+  { value: 'contador', label: 'Financeiro', desc: 'Visualiza e lança dados',               icon: UserCircle2,  cor: 'text-blue-400',   bg: 'bg-blue-500/15   border-blue-500/30'   },
   { value: 'dono',     label: 'Sócio/Dono', desc: 'Acesso completo sem gerenciar sistema', icon: Briefcase,    cor: 'text-amber-400',  bg: 'bg-amber-500/15  border-amber-500/30'  },
   { value: 'admin',    label: 'Admin',       desc: 'Pode fechar períodos + gerenciar',       icon: ShieldCheck,  cor: 'text-purple-400', bg: 'bg-purple-500/15 border-purple-500/30' },
 ]

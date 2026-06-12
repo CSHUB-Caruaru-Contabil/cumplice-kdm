@@ -86,6 +86,7 @@ export type BancoLancamento = {
   status: 'ok' | 'pendente' | 'sem_nf' | 'parcial'
   conta?: Maybe<string>
   observacao_parcial?: Maybe<string>
+  comprovante_url?: Maybe<string>
   created_at: string
 }
 

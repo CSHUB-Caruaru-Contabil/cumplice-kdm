@@ -8,11 +8,12 @@ import {
   RowActions, Select, Table, Td, Toast, Tr, brl, fmtData,
 } from '@/components/ui'
 import { Button } from '@/components/ui/button'
-import { Upload, Plus, Landmark } from 'lucide-react'
+import { Upload, Plus, Landmark, FileDown } from 'lucide-react'
 import ContasBancarias from '@/components/ContasBancarias'
 import { checkPeriodoAberto } from '@/lib/periodo-check-client'
 import UploadComprovante from '@/components/UploadComprovante'
 import UploadComprovanteEmLote from '@/components/UploadComprovanteEmLote'
+import { gerarPdfLancamentosBancarios } from '@/lib/relatorios/banco-pdf'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void }
 
@@ -85,7 +86,11 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
       cliente_id: clienteId, periodo: data.substring(0, 7), data, descricao: desc,
       categoria, tipo, valor: parseFloat(valor),
       nf_vinculada: nfVinc || null, conta: conta || null,
-      status: nfVinc ? 'ok' : (tipo === 'entrada' ? 'pendente' : 'ok'),
+      // Saída só fica "conciliado" com NF + comprovante (tributo: só comprovante).
+      // Comprovante é anexado depois, então um lançamento novo nunca nasce 'ok' p/ saída.
+      status: tipo === 'entrada'
+        ? (nfVinc ? 'ok' : 'pendente')
+        : (nfVinc ? 'parcial' : 'sem_nf'),
     })
     if (error) { setToast(`Erro: ${error.message}`); setSalvando(false); return }
     setDesc(''); setValor(''); setNFVinc('')
@@ -158,6 +163,8 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
   // ── Filtro e consolidado ──────────────────────────────────────────────────
   const [contaFiltro, setContaFiltro] = useState<string | null>(null)
   const [comprovanteFiltro, setComprovanteFiltro] = useState<'todos' | 'com' | 'sem'>('todos')
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [gerandoPdf, setGerandoPdf] = useState(false)
 
   const contasPeriodo = [...new Set(lancamentos.map(l => l.conta).filter(Boolean))] as string[]
 
@@ -165,6 +172,8 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
     .filter(l => !contaFiltro || l.conta === contaFiltro)
     .filter(l => {
       if (comprovanteFiltro === 'todos') return true
+      // entradas não precisam de comprovante, então nunca entram no filtro "sem comprovante"
+      if (comprovanteFiltro === 'sem' && l.tipo === 'entrada') return false
       const temComprovante = !!(l as any).comprovante_url
       return comprovanteFiltro === 'com' ? temComprovante : !temComprovante
     })
@@ -183,6 +192,51 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
   const entradas = visiveis.filter(b => b.tipo === 'entrada').reduce((s, b) => s + b.valor, 0)
   const saidas   = visiveis.filter(b => b.tipo === 'saida').reduce((s, b) => s + b.valor, 0)
   const saldo    = entradas - saidas
+
+  // ── Seleção e relatório em PDF ──────────────────────────────────────────────
+  const todosSelecionados = visiveis.length > 0 && visiveis.every(b => selecionados.has(b.id))
+
+  function alternarSelecao(id: string) {
+    setSelecionados(prev => {
+      const novo = new Set(prev)
+      if (novo.has(id)) novo.delete(id); else novo.add(id)
+      return novo
+    })
+  }
+
+  function alternarSelecaoTodos() {
+    setSelecionados(prev => {
+      if (todosSelecionados) {
+        const novo = new Set(prev)
+        for (const b of visiveis) novo.delete(b.id)
+        return novo
+      }
+      const novo = new Set(prev)
+      for (const b of visiveis) novo.add(b.id)
+      return novo
+    })
+  }
+
+  async function baixarPdfSelecionados() {
+    const itens = lancamentos.filter(l => selecionados.has(l.id))
+    if (itens.length === 0) return
+    setGerandoPdf(true)
+    try {
+      const blob = await gerarPdfLancamentosBancarios(itens, {
+        subtitulo: `${contaFiltro || 'Todas as contas'} · ${periodo}`,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `lancamentos-bancarios-${periodo}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setToast('Erro ao gerar PDF')
+    } finally {
+      setGerandoPdf(false)
+    }
+  }
 
   return (
     <div>
@@ -401,13 +455,25 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
             )}
           </span>
         }>
-          {contaFiltro ? `Movimentações — ${contaFiltro}` : 'Movimentações Bancárias'}
+          <span className="flex items-center justify-between w-full gap-3">
+            <span>{contaFiltro ? `Movimentações — ${contaFiltro}` : 'Movimentações Bancárias'}</span>
+            {selecionados.size > 0 && (
+              <Btn onClick={baixarPdfSelecionados} disabled={gerandoPdf} className="gap-1.5 shrink-0">
+                <FileDown className="h-3.5 w-3.5" />
+                {gerandoPdf ? 'Gerando...' : `Baixar PDF (${selecionados.size})`}
+              </Btn>
+            )}
+          </span>
         </CardTitle>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-border">
+                <th className="py-2.5 px-3 w-[36px]">
+                  <input type="checkbox" checked={todosSelecionados} onChange={alternarSelecaoTodos}
+                    className="h-4 w-4 rounded border-border cursor-pointer accent-primary" />
+                </th>
                 <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[100px]">Data</th>
                 <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Descrição</th>
                 <th className="text-left py-2.5 px-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground whitespace-nowrap w-[120px]">Categoria</th>
@@ -423,6 +489,12 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
           {visiveis.map(b => (
             <React.Fragment key={b.id}>
             <tr className="border-b border-border hover:bg-secondary/50 transition-colors">
+              {/* Seleção */}
+              <td className="py-2.5 px-3">
+                <input type="checkbox" checked={selecionados.has(b.id)} onChange={() => alternarSelecao(b.id)}
+                  className="h-4 w-4 rounded border-border cursor-pointer accent-primary" />
+              </td>
+
               {/* Data */}
               <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtData(b.data)}</td>
 
@@ -468,13 +540,18 @@ export default function Banco({ clienteId, periodo, refresh, onRecarregar }: Pro
 
               {/* Comprovante */}
               <td className="py-2.5 px-3">
-                <UploadComprovante
-                  tabela="banco_lancamentos"
-                  registroId={b.id}
-                  clienteId={clienteId}
-                  urlAtual={(b as any).comprovante_url}
-                  onAtualizado={url => setLancamentos(prev => prev.map(x => x.id === b.id ? { ...x, comprovante_url: url } as any : x))}
-                />
+                {b.tipo === 'entrada' ? (
+                  <span className="text-muted-foreground text-xs">—</span>
+                ) : (
+                  <UploadComprovante
+                    tabela="banco_lancamentos"
+                    registroId={b.id}
+                    clienteId={clienteId}
+                    urlAtual={(b as any).comprovante_url}
+                    onAtualizado={() => carregar()}
+                    vincular={{ periodo: b.periodo, data: b.data, valor: b.valor, descricao: b.descricao }}
+                  />
+                )}
               </td>
 
               {/* Ações */}

@@ -14,6 +14,7 @@ import type { Section } from '@/app/dashboard/DashboardClient'
 import {
   LayoutDashboard, ShoppingCart, FileText, FileSpreadsheet, Landmark, CreditCard,
   ScanSearch, TrendingUp, Settings, LogOut, ChevronLeft, ChevronRight, Menu, Building2, Users, Wrench, Search,
+  FileDown,
 } from 'lucide-react'
 import MonthPicker from '@/components/MonthPicker'
 
@@ -25,6 +26,8 @@ type Props = {
   onPeriodo: (p: string) => void
   collapsed?: boolean
   onCollapsedChange?: (v: boolean) => void
+  /** Papel do usuário no cliente ativo — 'dono' (cliente final) não vê SPED EFD */
+  papel?: string | null
 }
 
 type NavItem = { id: Section; icon: React.ElementType; label: string; badge?: string }
@@ -47,8 +50,9 @@ const NAV_ITEMS: { section: string; items: NavItem[] }[] = [
   {
     section: 'Análise',
     items: [
-      { id: 'cruzamento', icon: ScanSearch, label: 'Cruzamento', badge: '!' },
-      { id: 'projecao',   icon: TrendingUp, label: 'Projeção Tributária' },
+      { id: 'cruzamento', icon: ScanSearch, label: 'Análise de Tendências de Contas', badge: '!' },
+      { id: 'projecao',   icon: TrendingUp, label: 'Simulador de Imposto' },
+      { id: 'xml-pdf',    icon: FileDown,   label: 'XML → PDF' },
     ],
   },
   {
@@ -104,10 +108,15 @@ export default function Sidebar(props: Props) {
 
 function SidebarContent({
   clienteAtivo, secao, periodo,
-  onSecao, onPeriodo, collapsed, setCollapsed,
+  onSecao, onPeriodo, collapsed, setCollapsed, papel,
 }: Props & { collapsed: boolean; setCollapsed: (v: boolean) => void }) {
   const router = useRouter()
   const supabase = createClient()
+
+  // Cliente final ('dono') não tem acesso à escrituração fiscal digital
+  const navItems = papel === 'dono'
+    ? NAV_ITEMS.map(group => ({ ...group, items: group.items.filter(i => i.id !== 'sped') }))
+    : NAV_ITEMS
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -159,7 +168,7 @@ function SidebarContent({
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-        {NAV_ITEMS.map(group => (
+        {navItems.map(group => (
           <div key={group.section}>
             {!collapsed ? (
               <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40 px-4 pt-4 pb-1">

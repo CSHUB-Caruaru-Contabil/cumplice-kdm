@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { calcularSimples, calcularLucroPresumido } from '@/lib/crossref'
 import type { Cliente, Compra, Despesa, DocumentoSped, NotaFiscal, BancoLancamento } from '@/lib/supabase/types'
-import { AlertBar, Card, CardTitle, KpiCard, Tag, brl, brlC, pct } from '@/components/ui'
+import { Card, CardTitle, KpiCard, brl, brlC, pct } from '@/components/ui'
 import { ehVenda, ehRemessa, ehRetorno, ehDevolucao, ehDevolucaoEntrada } from '@/lib/cfop'
 
 type Props = { clienteId: string; periodo: string; refresh: number; onRecarregar: () => void; cliente: Cliente }
@@ -62,7 +62,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
         setDados({
           notas: notas as NotaFiscal[],
           compras: (compras as Compra[]).map(r => ({ ...r, status: r.nf_entrada ? 'ok' : 'sem_nf' })),
-          despesas: (despesas as Despesa[]).map(r => ({ ...r, status: r.documento ? 'ok' : 'sem_doc' })),
+          despesas: (despesas as Despesa[]).map(r => ({ ...r, status: (r.documento || (r as unknown as { comprovante_url?: string }).comprovante_url) ? 'ok' : 'sem_doc' })),
           banco: banco as BancoLancamento[],
           sped: sped as DocumentoSped[],
         })
@@ -96,7 +96,7 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
   const total_retornos         = notasRetorno.reduce((s, n) => s + n.valor, 0)
   const faturamento_vendas_nf  = notasVenda.reduce((s, n) => s + n.valor, 0)
   const faturamento_devolucoes = notasDevolucao.reduce((s, n) => s + n.valor, 0)
-  const faturamento_nf_manual  = faturamento_vendas_nf - faturamento_devolucoes - total_retornos
+  const faturamento_nf_manual  = faturamento_vendas_nf - faturamento_devolucoes
 
   // Faturamento via SPED (saídas com classificacao='venda')
   const spedVendas         = sped.filter(d => d.tipo === 'saida' && d.classificacao === 'venda')
@@ -170,33 +170,8 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
     ? (resultado_liq / faturamento_nf * 100).toFixed(1)
     : null
 
-  const alertas = [
-    divergencia_banco_nf > 500 && {
-      tipo: 'red', msg: `Receita não declarada: ${brl(divergencia_banco_nf)} entraram no banco sem NF emitida.`,
-      meta: 'Risco fiscal alto · Verificar origens', tag: 'RISCO ALTO' as const,
-    },
-    compras_sem_nf > 200 && {
-      tipo: 'red', msg: `Compras sem NF: ${brl(compras_sem_nf)} em compras sem nota de entrada.`,
-      meta: 'Crédito perdido · Risco de autuação', tag: 'RISCO ALTO' as const,
-    },
-    despesas_sem_doc > 300 && {
-      tipo: 'orange', msg: `Despesas sem comprovante: ${brl(despesas_sem_doc)} sem documento fiscal.`,
-      meta: 'Despesa não dedutível', tag: 'ATENÇÃO' as const,
-    },
-  ].filter(Boolean) as Array<{ tipo: string; msg: string; meta: string; tag: 'RISCO ALTO' | 'ATENÇÃO' }>
-
   return (
     <div>
-      {alertas.length > 0 && (
-        <AlertBar variant={alertas.some(a => a.tipo === 'red') ? 'error' : 'warn'}>
-          <span style={{ fontSize: 18 }}>🚨</span>
-          <div>
-            <strong>{alertas.length} alerta{alertas.length > 1 ? 's' : ''} estratégico{alertas.length > 1 ? 's' : ''} identificado{alertas.length > 1 ? 's' : ''}</strong>
-            {' — '}Há divergências entre entradas bancárias e notas emitidas.
-          </div>
-        </AlertBar>
-      )}
-
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 22 }}>
         <KpiCard
@@ -206,10 +181,10 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
             usandoSpedFaturamento
               ? `via SPED · ${spedVendas.length} docs venda`
               : (total_remessas + total_retornos) > 0
-                ? `−${brlC(total_retornos)} retornos · −${brlC(total_remessas)} rem. excl.`
+                ? `${brlC(total_remessas + total_retornos)} excl. (remessas/retornos)`
                 : `${notasVenda.length} NFs de venda`
           }
-          deltaType={usandoSpedFaturamento ? 'up' : (total_remessas + total_retornos) > 0 ? 'warn' : undefined}
+          deltaType={usandoSpedFaturamento ? 'up' : undefined}
           topColor="var(--accent)" />
         <KpiCard label="Entradas no Banco" value={brlC(entradas_banco)}
           delta={divergencia_banco_nf > 0 ? `⚠ ${brlC(divergencia_banco_nf)} sem NF` : '✓ Conciliado'}
@@ -298,30 +273,8 @@ export default function VisaoGeral({ clienteId, periodo, refresh, cliente }: Pro
         </div>
       </Card>
 
-      {/* Alertas + Saúde */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 20 }}>
-        <Card>
-          <CardTitle sub={`${alertas.length} ativo${alertas.length !== 1 ? 's' : ''}`}>Alertas Estratégicos</CardTitle>
-          {alertas.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--green)' }}>
-              ✓ Nenhum alerta — mês limpo!
-            </div>
-          ) : alertas.map((a, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 0', borderBottom: i < alertas.length - 1 ? '1px solid var(--border)' : 'none' }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%', flexShrink: 0, marginTop: 4,
-                background: a.tipo === 'red' ? 'var(--red)' : 'var(--orange)',
-                boxShadow: a.tipo === 'red' ? '0 0 6px rgba(239,68,68,0.5)' : '0 0 6px rgba(249,115,22,0.5)',
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12.5, lineHeight: 1.4 }}>{a.msg}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2 }}>{a.meta}</div>
-              </div>
-              <Tag variant={a.tipo === 'red' ? 'red' : 'orange'}>{a.tag}</Tag>
-            </div>
-          ))}
-        </Card>
-
+      {/* Saúde Financeira */}
+      <div style={{ marginBottom: 20 }}>
         <Card>
           <CardTitle>Saúde Financeira do Mês</CardTitle>
 

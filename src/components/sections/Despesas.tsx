@@ -33,10 +33,10 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
   const carregar = useCallback(async () => {
     const { data: rows } = await supabase.from('despesas').select('*')
       .eq('cliente_id', clienteId).eq('periodo', periodo).order('data', { ascending: false }).limit(50000)
-    // status é coluna gerada que não existe após prisma db push — deriva do documento
+    // status é coluna gerada que não existe após prisma db push — deriva do documento/comprovante
     const comStatus = (rows || []).map(r => ({
       ...r,
-      status: (r.documento ? 'ok' : 'sem_doc') as 'ok' | 'sem_doc',
+      status: (r.documento || r.comprovante_url ? 'ok' : 'sem_doc') as 'ok' | 'sem_doc',
     }))
     setDespesas(comStatus as Despesa[])
   }, [clienteId, periodo])
@@ -370,6 +370,7 @@ export default function Despesas({ clienteId, periodo, refresh, onRecarregar }: 
                   clienteId={clienteId}
                   urlAtual={(d as any).comprovante_url}
                   onAtualizado={url => setDespesas(prev => prev.map(x => x.id === d.id ? { ...x, comprovante_url: url } as any : x))}
+                  vincular={{ periodo: d.periodo, data: d.data, valor: d.valor, descricao: d.descricao }}
                 />
               </Td>
               <Td><Badge variant={d.status === 'ok' || (d as any).comprovante_url ? 'ok' : 'err'}>{(d as any).comprovante_url ? '📎 Anexado' : d.status === 'ok' ? '✓ OK' : '⚠ Sem doc'}</Badge></Td>

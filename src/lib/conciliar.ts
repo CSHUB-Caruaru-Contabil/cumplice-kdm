@@ -19,7 +19,7 @@ export async function conciliarPeriodo(clienteId: string, periodo: string) {
   const adaptNotas   = notas.map(r   => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), data_recebimento: r.data_recebimento ? fmt(r.data_recebimento) : undefined })) as NotaFiscal[]
   const adaptCompras = compras.map(r => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), status: r.nf_entrada ? 'ok' as const : 'sem_nf' as const })) as Compra[]
   const adaptDespesas = despesas.map(r => ({ ...r, valor: n(r.valor), data: fmt(r.data),   created_at: r.created_at.toISOString(), status: r.documento ? 'ok' as const : 'sem_doc' as const, pago_banco: r.pago_banco ?? true, dedutivel: (r.dedutivel ?? 'sim') as 'sim' | 'parcial' | 'nao' })) as Despesa[]
-  const adaptBanco   = banco.map(r   => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), tipo: r.tipo as 'entrada' | 'saida', status: r.status as 'ok' | 'pendente' | 'sem_nf' | 'parcial', categoria: r.categoria ?? undefined, nf_vinculada: r.nf_vinculada ?? undefined, nota_fiscal_id: r.nota_fiscal_id ?? undefined, conta: r.conta ?? undefined })) as BancoLancamento[]
+  const adaptBanco   = banco.map(r   => ({ ...r, valor: n(r.valor),   data: fmt(r.data),   created_at: r.created_at.toISOString(), tipo: r.tipo as 'entrada' | 'saida', status: r.status as 'ok' | 'pendente' | 'sem_nf' | 'parcial', categoria: r.categoria ?? undefined, nf_vinculada: r.nf_vinculada ?? undefined, nota_fiscal_id: r.nota_fiscal_id ?? undefined, conta: r.conta ?? undefined, comprovante_url: r.comprovante_url ?? undefined })) as BancoLancamento[]
   const adaptSped    = spedDocs.map(r => ({ ...r, valor_total: n(r.valor_total), data_emissao: fmt(r.data_emissao), data_entrada_saida: r.data_entrada_saida ? fmt(r.data_entrada_saida) : null, created_at: r.created_at.toISOString(), tipo: r.tipo as 'entrada' | 'saida', emissao: r.emissao as 'propria' | 'terceiros' }))
 
   const threshAdapt = thresh ? { divergencia_banco_nf: n(thresh.divergencia_banco_nf), compra_sem_nf: n(thresh.compra_sem_nf), despesa_sem_doc: n(thresh.despesa_sem_doc) } : undefined
@@ -66,6 +66,33 @@ export async function conciliarPeriodo(clienteId: string, periodo: string) {
       where: { id: { in: pendentes.map(b => b.id) } },
       data: { status: 'pendente', nota_fiscal_id: null },
     })
+  }
+
+  // Saídas: só conciliado ('ok') com NF vinculada E comprovante anexado.
+  // Pagamento de tributos (sem NF) concilia apenas com comprovante.
+  const conciliacoesSpedIds = new Set(
+    resultado.conciliacoesSped.filter(c => ['venda', 'compra', 'despesa'].includes(c.via)).map(c => c.banco_id)
+  )
+  for (const b of adaptBanco) {
+    if (b.tipo !== 'saida') continue
+    const temComprovante = !!b.comprovante_url
+    const isTributo = b.categoria === 'Imposto/Tributo'
+    const temNF = !!b.nota_fiscal_id || !!b.nf_vinculada || conciliadosIds.has(b.id) || conciliacoesSpedIds.has(b.id)
+
+    let novoStatus: 'ok' | 'pendente' | 'sem_nf' | 'parcial'
+    if (isTributo) {
+      novoStatus = temComprovante ? 'ok' : 'pendente'
+    } else if (temNF && temComprovante) {
+      novoStatus = 'ok'
+    } else if (temNF || temComprovante) {
+      novoStatus = 'parcial'
+    } else {
+      novoStatus = 'sem_nf'
+    }
+
+    if (novoStatus !== b.status) {
+      await prisma.bancoLancamento.update({ where: { id: b.id }, data: { status: novoStatus } }).catch(() => {})
+    }
   }
 
   return {

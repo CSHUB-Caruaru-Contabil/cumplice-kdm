@@ -10,9 +10,12 @@ type Props = {
   clienteId: string
   urlAtual?: string | null
   onAtualizado?: (novaUrl: string | null) => void
+  /** Dados do lançamento correspondente na outra tabela (despesas ⇄ banco_lancamentos),
+   *  usados para propagar o comprovante para o registro espelhado (mesma transação). */
+  vincular?: { periodo: string; data: string; valor: number; descricao: string }
 }
 
-export default function UploadComprovante({ tabela, registroId, clienteId, urlAtual, onAtualizado }: Props) {
+export default function UploadComprovante({ tabela, registroId, clienteId, urlAtual, onAtualizado, vincular }: Props) {
   const supabase = createClient()
   const [uploading, setUploading] = useState(false)
   const [erro, setErro] = useState('')
@@ -65,6 +68,8 @@ export default function UploadComprovante({ tabela, registroId, clienteId, urlAt
       if (saveErr) throw new Error(saveErr.message)
 
       setUrl(novaUrl)
+      await propagar(novaUrl)
+      await reconciliar()
       onAtualizado?.(novaUrl)
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro no upload')
@@ -84,9 +89,36 @@ export default function UploadComprovante({ tabela, registroId, clienteId, urlAt
       await supabase.from(tabela).update({ comprovante_url: null }).eq('id', registroId)
 
       setUrl(null)
+      await propagar(null)
+      await reconciliar()
       onAtualizado?.(null)
     } catch { /* ignora */ }
     setUploading(false)
+  }
+
+  // Propaga o comprovante para o lançamento espelhado na outra tabela (mesma
+  // transação, identificada por cliente+período+data+valor+descrição)
+  async function propagar(novaUrl: string | null) {
+    if (!vincular) return
+    try {
+      const tabelaDestino = tabela === 'despesas' ? 'banco_lancamentos' : 'despesas'
+      await supabase.from(tabelaDestino)
+        .update({ comprovante_url: novaUrl })
+        .eq('cliente_id', clienteId)
+        .eq('periodo', vincular.periodo)
+        .eq('data', vincular.data)
+        .eq('valor', vincular.valor)
+        .eq('descricao', vincular.descricao)
+    } catch { /* ignora — registro espelhado pode não existir */ }
+  }
+
+  // O status de conciliação de banco_lancamentos depende do comprovante
+  // (saída só fica "ok" com NF + comprovante) — reprocessa após anexar/remover
+  async function reconciliar() {
+    if (!vincular) return
+    try {
+      await fetch(`/api/clientes/${clienteId}/conciliar?periodo=${vincular.periodo}`, { method: 'POST' })
+    } catch { /* ignora */ }
   }
 
   const inputId = `comprovante-${registroId}`

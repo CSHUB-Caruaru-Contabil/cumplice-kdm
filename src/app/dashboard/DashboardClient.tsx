@@ -19,12 +19,13 @@ import Clientes from '@/components/sections/Clientes'
 import Usuarios from '@/components/sections/Usuarios'
 import Ferramentas from '@/components/sections/Ferramentas'
 import BuscaLancamentos from '@/components/sections/BuscaLancamentos'
+import XmlParaPdf from '@/components/sections/XmlParaPdf'
 import { RefreshCw, Building2, ArrowRight } from 'lucide-react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 export type Section =
   | 'visao-geral' | 'compras' | 'notas' | 'sped' | 'banco'
-  | 'despesas' | 'cruzamento' | 'projecao' | 'config' | 'clientes' | 'usuarios' | 'ferramentas' | 'busca'
+  | 'despesas' | 'cruzamento' | 'projecao' | 'config' | 'clientes' | 'usuarios' | 'ferramentas' | 'busca' | 'xml-pdf'
 
 const SECTION_TITLES: Record<Section, [string, string]> = {
   'visao-geral': ['Visão Geral', 'Painel de alertas e KPIs do mês'],
@@ -33,13 +34,14 @@ const SECTION_TITLES: Record<Section, [string, string]> = {
   'sped':        ['SPED EFD', 'Importação e documentos da escrituração fiscal digital'],
   'banco':       ['Banco', 'Movimentações bancárias'],
   'despesas':    ['Despesas', 'Despesas operacionais do mês'],
-  'cruzamento':  ['Cruzamento de Dados', 'Divergências identificadas automaticamente'],
-  'projecao':    ['Projeção Tributária', 'Estimativa de impostos e recomendações'],
+  'cruzamento':  ['Análise de Tendências de Contas', 'Divergências identificadas automaticamente'],
+  'projecao':    ['Simulador de Imposto', 'Estimativa de impostos e recomendações'],
   'config':      ['Perfil do Cliente', 'Configurações e thresholds de alerta'],
   'clientes':    ['Gerenciar Empresas', 'Criar, editar e desativar clientes'],
   'usuarios':    ['Gerenciar Usuários', 'Criar, editar e remover acessos'],
   'ferramentas': ['Ferramentas', 'Utilitários de manutenção e limpeza de dados'],
   'busca':       ['Buscar Lançamentos', 'Busca e gestão de compras e notas fiscais'],
+  'xml-pdf':     ['XML → PDF', 'Converte XMLs de NF-e em PDF para análise de produtos e CFOP'],
 }
 
 // Gera lista de períodos: mês atual + 11 meses anteriores
@@ -75,6 +77,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
 
   const supabase = createClient()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [papel, setPapel] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -82,8 +85,16 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
       supabase.from('usuario_clientes')
         .select('papel').eq('usuario_id', user.id).eq('papel', 'admin').limit(1)
         .then(({ data }) => setIsAdmin((data || []).length > 0))
+      supabase.from('usuario_clientes')
+        .select('papel').eq('usuario_id', user.id).eq('cliente_id', clienteAtivo.id).limit(1)
+        .then(({ data }) => setPapel(data?.[0]?.papel ?? null))
     })
   }, [clienteAtivo?.id])
+
+  // Cliente final ('dono') não tem acesso à aba SPED EFD
+  useEffect(() => {
+    if (papel === 'dono' && secao === 'sped') setSecao('visao-geral')
+  }, [papel, secao])
 
   // Recarrega dados do cliente ativo do banco (para refletir edições do Config)
   const refetchCliente = useCallback(async () => {
@@ -112,6 +123,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
         onPeriodo={setPeriodo}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
+        papel={papel}
       />
 
       {/* Main — offset dinâmico baseado na sidebar */}
@@ -151,6 +163,7 @@ export default function DashboardClient({ clientes }: { clientes: Cliente[] }) {
           {secao === 'usuarios'    && <Usuarios {...sectionProps} />}
           {secao === 'ferramentas' && <Ferramentas {...sectionProps} isAdmin={isAdmin} />}
           {secao === 'busca'       && <BuscaLancamentos {...sectionProps} />}
+          {secao === 'xml-pdf'     && <XmlParaPdf clienteId={clienteAtivo?.id} />}
 
           {/* Seções que precisam de cliente */}
           {precisaCliente && !clienteAtivo && (
